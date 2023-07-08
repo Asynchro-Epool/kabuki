@@ -902,22 +902,6 @@ class Hierarchical(object):
         trace_tmp.rename(columns={"trace":"draw"}, inplace=True)
         trace_tmp.set_index(["chain", "draw"], inplace=True)
         xdata_posterior = xr.Dataset.from_dataframe(trace_tmp)
- 
-        # if stochastics_node is None:
-        #     nodes = self.get_stochastics().node
-        # else:
-        #     nodes = stochastics_node
-        # tmp_dfs = []
-        # tmp_cols = []
-        # for node in nodes:
-        #     trace = node.trace._trace
-        #     tmp_dfs += [pd.DataFrame(trace).stack()]
-        #     tmp_cols += [node.__name__]
-
-        # tmp_dfs = pd.concat(tmp_dfs, axis=1, keys=tmp_cols)
-        # tmp_dfs.reset_index().rename(columns={"level_0":"draw","level_1":"chain"})
-        # tmp_dfs = tmp_dfs.set_index(["chain", "draw"])
-        # xdata_posterior = xr.Dataset.from_dataframe(tmp_dfs)
         
         return xdata_posterior
     
