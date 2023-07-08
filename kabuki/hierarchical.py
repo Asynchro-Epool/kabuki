@@ -16,6 +16,7 @@ import pymc as pm
 import warnings
 
 from kabuki.utils import flatten
+from kabuki.utils import concat_models
 from . import analyze
 
 
@@ -699,6 +700,36 @@ class Hierarchical(object):
 
             return sampler
 
+    # def sample(self, *args, **kwargs):
+    #     """Sample from posterior.
+
+    #     :Note:
+    #         Forwards arguments to pymc.MCMC.sample().
+
+    #     """
+
+    #     # Fetch out arguments for db backend
+    #     db = kwargs.pop("db", "ram")
+    #     dbname = kwargs.pop("dbname", None)
+
+    #     # init mc if needed
+    #     if self.mc == None:
+    #         self.mcmc(db=db, dbname=dbname)
+
+    #     # suppress annoying warnings
+    #     if ("hdf5" in dir(pm.database)) and isinstance(
+    #         self.mc.db, pm.database.hdf5.Database
+    #     ):
+    #         warnings.simplefilter("ignore", pm.database.hdf5.tables.NaturalNameWarning)
+
+    #     # sample
+    #     self.mc.sample(*args, **kwargs)
+
+    #     self.sampled = True
+
+    #     self.gen_stats()
+    #     return self.mc
+    
     def sample(self, *args, **kwargs):
         """Sample from posterior.
 
@@ -706,29 +737,229 @@ class Hierarchical(object):
             Forwards arguments to pymc.MCMC.sample().
 
         """
+        from pathlib import Path
+        from copy import deepcopy
+        import psutil
+        import time
+        start_time = time.time()
 
         # Fetch out arguments for db backend
+        save = kwargs.pop("save", False)
+        InfData = kwargs.pop("InfData", False)
+        loglike = kwargs.pop("loglike", False)
+        ppc = kwargs.pop("ppc", False)
         db = kwargs.pop("db", "ram")
-        dbname = kwargs.pop("dbname", None)
+        chains = kwargs.pop("chains", 1)
+        dbname = kwargs.pop("dbname", "{}.db".format(self.model) if hasattr(self, 'model') else None)
+        
+        if chains > 1:
+            db = "pickle"
 
-        # init mc if needed
-        if self.mc == None:
-            self.mcmc(db=db, dbname=dbname)
+            # sample
+            def sample_single_chain(dbname, *args, **kwargs):
+                      
+                hddm = deepcopy(self)
+                hddm.mcmc(db=db, dbname=dbname)
+                hddm.sample(*args, **kwargs)
+                
+                return hddm
+                
+            dbname_path = Path(dbname) 
+            name, extension = dbname_path.stem, dbname_path.suffix
+            dbnames = [name + "_chain{}".format(i) + extension for i in range(chains)]
+            # ms = [sample_single_chain(dbn, *args, **kwargs) for dbn in dbnames]
+            
+            from joblib import Parallel, delayed
+            n_jobs = min(psutil.cpu_count(), chains)
+            ms = Parallel(n_jobs=n_jobs)(delayed(sample_single_chain)(dbn, *args, **kwargs) for dbn in dbnames)
+            
+            self.ntrace = ms[0].mc.db._traces['deviance']._trace[0].size
+        
+            model = concat_models(ms)  
+            self.__dict__ = model.__dict__ 
 
-        # suppress annoying warnings
-        if ("hdf5" in dir(pm.database)) and isinstance(
-            self.mc.db, pm.database.hdf5.Database
-        ):
-            warnings.simplefilter("ignore", pm.database.hdf5.tables.NaturalNameWarning)
+        else:
+            # init mc if needed
+            if self.mc == None:
+                self.mcmc(db=db, dbname=dbname)
 
-        # sample
-        self.mc.sample(*args, **kwargs)
+            # suppress annoying warnings
+            if ("hdf5" in dir(pm.database)) and isinstance(
+                self.mc.db, pm.database.hdf5.Database
+            ):
+                warnings.simplefilter("ignore", pm.database.hdf5.tables.NaturalNameWarning)
 
+            # sample
+            self.mc.sample(*args, **kwargs)
+            
+            self.ntrace = self.mc.db._traces['deviance']._trace[0].size
+        
+        self.chains = chains
+        index = pd.MultiIndex.from_product([np.arange(self.chains), np.arange(self.ntrace)], names=['chain', 'trace'])
+        index = pd.DataFrame({"draw": np.arange(self.chains*self.ntrace)},index = index).reset_index().set_index("draw")
+        self.draw_index = index
+        
         self.sampled = True
-
         self.gen_stats()
+        
+        if InfData:
+            self.conver2InfData(loglike = loglike, ppc = ppc, save = save)
+            
+        if save:
+                save_path = Path(save)
+                self.save_path = save_path
+                if not save_path.parent.exists():
+                    save_path.parent.mkdir()
+                
+                db_path = save_path.with_suffix(".db")
+                hddm_path = save_path.with_suffix(".hddm")
+                
+                db_tmp = self.mc.db
+                db_tmp.filename = str(db_path)
+                db_tmp._finalize()
+                
+                self.load_db(str(db_path), db=db)
+                
+                self.save(hddm_path)
+                
+                for filename in dbnames:
+                    path = Path(filename)
+                    if path.is_file():
+                        try:
+                            path.unlink()
+                            print(f"delete {filename}")
+                        except OSError as error:
+                            print(f"fail to delete {filename}: {error}")                        
+        
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print("hddm sampling elpased time: ", elapsed_time, "s")
         return self.mc
+    
+    def conver2InfData(self, loglike = False, ppc = False, save = False):
+        """
+        convert HDDM to InferenceData
+        """
+        
+        if not self.sampled:
+            ValueError("Model not sampled. Call sample() first.")
+            
+        import xarray as xr
+        import arviz as az
+        from pathlib import Path
+        
+        if hasattr(self, 'InfData'):
+            return self.InfData
+        
+        InfData_tmp = {}
+        # Observations
+        xdata_observed = self.data.copy()
+        xdata_observed = xdata_observed.convert_dtypes()
+        xdata_observed.index.names = ['trial']
+        xdata_observed.reset_index(inplace=True)
+        xdata_observed.set_index(["subj_idx", "trial"], inplace=True)
+        xdata_observed = xr.Dataset.from_dataframe(xdata_observed)
+        InfData_tmp['observed_data'] = xdata_observed
+        
+        # posteriors
+        InfData_tmp['posterior'] = self.get_xarray_posterior()
+        
+        # Point-wise log likelihood
+        if loglike:
+            InfData_tmp['log_likelihood'] = xr.Dataset.from_dataframe(self.get_pointwise_loglike())
+        
+        # ppc    
+        if ppc:
+            InfData_tmp['posterior_predictive'] = xr.Dataset.from_dataframe(self.get_xarrary_ppc())
+            
+        # convert to InfData
+        print("Start converting to InferenceData...")
+        InfData_tmp = az.InferenceData(**InfData_tmp)
+      
+        if save:   
+            save_path = Path(save).with_suffix(".nc")
+            InfData_tmp.to_netcdf(save_path)
+            
+        self.InfData = InfData_tmp
+        
+        return self.InfData
+    
+    def get_xarray_posterior(self):
+        
+        if not self.sampled:
+            ValueError("Model not sampled. Call sample() first.")
+        
+        import xarray as xr
+        
+        if hasattr(self, 'xdata_posterior'):
+            return self.xdata_posterior
+        
+        trace_tmp = self.get_traces()
+        trace_tmp.index.name = 'draw'
+        trace_tmp = trace_tmp.merge(self.draw_index, how='left', left_index=True, right_index=True)
+        trace_tmp.reset_index(inplace=True)
+        trace_tmp.drop("draw", axis=1, inplace=True)
+        trace_tmp.rename(columns={"trace":"draw"}, inplace=True)
+        trace_tmp.set_index(["chain", "draw"], inplace=True)
+        xdata_posterior = xr.Dataset.from_dataframe(trace_tmp)
+ 
+        # if stochastics_node is None:
+        #     nodes = self.get_stochastics().node
+        # else:
+        #     nodes = stochastics_node
+        # tmp_dfs = []
+        # tmp_cols = []
+        # for node in nodes:
+        #     trace = node.trace._trace
+        #     tmp_dfs += [pd.DataFrame(trace).stack()]
+        #     tmp_cols += [node.__name__]
 
+        # tmp_dfs = pd.concat(tmp_dfs, axis=1, keys=tmp_cols)
+        # tmp_dfs.reset_index().rename(columns={"level_0":"draw","level_1":"chain"})
+        # tmp_dfs = tmp_dfs.set_index(["chain", "draw"])
+        # xdata_posterior = xr.Dataset.from_dataframe(tmp_dfs)
+        
+        return xdata_posterior
+    
+    def get_pointwise_loglike(self, **kwags):
+        
+        if not self.sampled:
+            ValueError("Model not sampled. Call sample() first.")
+            
+        from kabuki.analyze import pointwise_like_gen
+        
+        if hasattr(self, 'lppd'):
+            return self.lppd
+        
+        lppd = pointwise_like_gen(self, **kwags)
+        self.lppd = self._reset_draw_index(lppd)
+        
+        return self.lppd
+    
+    def get_xarrary_ppc(self, **kwags):
+        
+        if not self.sampled:
+            ValueError("Model not sampled. Call sample() first.")
+            
+        from kabuki.analyze import post_pred_gen
+        
+        if hasattr(self, 'ppc'):
+            return self.ppc
+        
+        ppc = post_pred_gen(self, **kwags)
+        self.ppc = self._reset_draw_index(ppc)
+        
+        return self.ppc
+    
+    def _reset_draw_index(self, data):
+        index = self.draw_index
+        data = data.merge(index, how='left', left_index=True, right_index=True)
+        data.reset_index(inplace=True)
+        data.drop("draw", axis=1, inplace=True)
+        data.rename(columns={"trace":"draw", "trial_idx": "trial"}, inplace=True)
+        data.set_index(["chain", "draw","node","trial"], inplace=True)
+        
+        return data
     @property
     def logp(self):
         if self.mc is None:
