@@ -801,9 +801,6 @@ class Hierarchical(object):
         
         self.sampled = True
         self.gen_stats()
-        
-        if InfData:
-            self.conver2InfData(loglike = loglike, ppc = ppc, save = save)
             
         if save:
                 save_path = Path(save)
@@ -830,6 +827,9 @@ class Hierarchical(object):
                             print(f"delete {filename}")
                         except OSError as error:
                             print(f"fail to delete {filename}: {error}")                        
+        
+        if InfData:
+            self.conver2InfData(loglike = loglike, ppc = ppc, save = save)
         
         end_time = time.time()
         elapsed_time = end_time - start_time
