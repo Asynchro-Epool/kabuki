@@ -706,8 +706,8 @@ class Hierarchical(object):
         :Arguments:
             chains : int <default=1>
                 Number of chains to sample from.
-            save : str <default=False>
-                The path to save the model. 
+            save_name : str <default=False>
+                The path and file name to save the model. e.g. "model/hddm"
             InfData : bool <default=False>
                 Whether to convert the model to InferenceData. Accept loglike and ppc arguments.
 
@@ -725,7 +725,7 @@ class Hierarchical(object):
         db = kwargs.pop("db", "ram")
         dbname = kwargs.pop("dbname", "{}.db".format(self.model) if hasattr(self, 'model') else "tmp_{}.db".format(int(time.time())))
         # Fetch out arguments for saving
-        save = kwargs.pop("save", False)
+        save_name = kwargs.pop("save_name", False)
         InfData = kwargs.pop("InfData", False)
         if InfData:
             db = "pickle" 
@@ -775,14 +775,14 @@ class Hierarchical(object):
             self.ntrace = self.mc.db._traces['deviance']._trace[0].size
         
         self.chains = chains 
-        if save:
-            save_path = Path(save)
-            self.save_path = save_path
-            if not save_path.parent.exists():
-                save_path.parent.mkdir()
+        if save_name:
+            save_name = Path(save_name)
+            self.save_name = save_name
+            if not save_name.parent.exists():
+                save_name.parent.mkdir(parents=True, exist_ok=True)
             
-            db_path = save_path.with_suffix(".db")
-            hddm_path = save_path.with_suffix(".hddm")
+            db_path = save_name.with_suffix(".db")
+            hddm_path = save_name.with_suffix(".hddm")
             
             db_tmp = self.mc.db
             pre_filename = Path(db_tmp.filename).with_suffix(".db")
@@ -817,7 +817,7 @@ class Hierarchical(object):
         
         try:
             if InfData:
-                self.conver2InfData(loglike = loglike, ppc = ppc, save = save)  
+                self.conver2InfData(loglike = loglike, ppc = ppc, save_name = save_name, **kwargs)  
         except:
             print("fail to convert to InferenceData")
             
@@ -825,14 +825,20 @@ class Hierarchical(object):
         
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print("hddm sampling elpased time: ", elapsed_time, "s")
+        print("hddm sampling elpased time: ", round(elapsed_time,3), "s")
         return self.InfData if hasattr(self, 'InfData') else self.mc
     
-    def conver2InfData(self, loglike = False, ppc = False, save = False):
+    def conver2InfData(self, loglike = False, ppc = False, save_name = False, **kwargs):
         """
         convert HDDM to InferenceData
         
-        argu
+        :Arguments:
+            save_name : str <default=False>
+                The path and file name to save the model. e.g. "model/hddm_InfData.nc"
+            loglike : bool <default=False>
+                Whether to calculate point-wise log likelihood. 
+            ppc : bool <default=False>
+                Whether to generate posterior predictive checks.
         
         return: ArViz InferenceData
         """
@@ -864,13 +870,13 @@ class Hierarchical(object):
         
         # Point-wise log likelihood
         if loglike:
-            loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike())
+            loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike(**kwargs))
             loglike_data = loglike_data.set_coords(["subj_idx", "trial"])
             InfData_tmp['log_likelihood'] = loglike_data
         
         # ppc    
         if ppc:
-            ppc_data = xr.Dataset.from_dataframe(self.gen_ppc())
+            ppc_data = xr.Dataset.from_dataframe(self.gen_ppc(**kwargs))
             ppc_data = ppc_data.set_coords(["subj_idx", "trial"])
             InfData_tmp['posterior_predictive'] = ppc_data
             
@@ -878,11 +884,11 @@ class Hierarchical(object):
         print("Start converting to InferenceData...")
         InfData_tmp = az.InferenceData(**InfData_tmp)
       
-        if save:   
-            save_path = Path(save).with_suffix(".nc")
-            if not save_path.parent.exists():
-                    save_path.parent.mkdir()
-            InfData_tmp.to_netcdf(save_path)
+        if save_name:   
+            save_name = Path(save_name).with_suffix(".nc")
+            if not save_name.parent.exists():
+                    save_name.parent.mkdir(parents=True, exist_ok=True)
+            InfData_tmp.to_netcdf(save_name)
             
         self.InfData = InfData_tmp
         
@@ -905,7 +911,7 @@ class Hierarchical(object):
         
         return trace_tmp
     
-    def get_pointwise_loglike(self, **kwags):
+    def get_pointwise_loglike(self, **kwargs):
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
@@ -915,12 +921,12 @@ class Hierarchical(object):
         if hasattr(self, 'lppd'):
             return self.lppd
         
-        lppd = pointwise_like_gen(self, **kwags)
+        lppd = pointwise_like_gen(self, **kwargs)
         self.lppd = self._reset_draw_index(lppd)
         
         return self.lppd
     
-    def gen_ppc(self, **kwags):
+    def gen_ppc(self, **kwargs):
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
@@ -930,7 +936,7 @@ class Hierarchical(object):
         if hasattr(self, 'ppc'):
             return self.ppc
         
-        ppc = post_pred_gen(self, **kwags)
+        ppc = post_pred_gen(self, **kwargs)
         self.ppc = self._reset_draw_index(ppc)
         
         return self.ppc
