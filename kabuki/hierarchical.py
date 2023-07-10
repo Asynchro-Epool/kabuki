@@ -723,7 +723,7 @@ class Hierarchical(object):
 
         # Fetch out arguments for db backend
         db = kwargs.pop("db", "ram")
-        dbname = kwargs.pop("dbname", "{}.db".format(self.model) if hasattr(self, 'model') else f"tmp_{int(time.time())}.db")
+        dbname = kwargs.pop("dbname", "{}.db".format(self.model) if hasattr(self, 'model') else "tmp_{}.db".format(int(time.time())))
         # Fetch out arguments for saving
         save = kwargs.pop("save", False)
         InfData = kwargs.pop("InfData", False)
@@ -754,7 +754,7 @@ class Hierarchical(object):
             ms = Parallel(n_jobs=n_jobs)(delayed(sample_single_chain)(dbn, db, *args, **kwargs) for dbn in dbnames)
             
             model = concat_models(ms) 
-            model.mc.db.filename = f"tmp_{int(time.time())}.db"
+            model.mc.db.filename = "tmp_{}.db".format(int(time.time()))
             model.mc.db._finalize()
             self.__dict__ = model.__dict__        
             self.ntrace = ms[0].mc.db._traces['deviance']._trace[0].size
