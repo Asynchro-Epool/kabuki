@@ -723,7 +723,7 @@ class Hierarchical(object):
 
         # Fetch out arguments for db backend
         db = kwargs.pop("db", "ram")
-        dbname = kwargs.pop("dbname", "{}.db".format(self.model) if hasattr(self, 'model') else None)
+        dbname = kwargs.pop("dbname", "{}.db".format(self.model) if hasattr(self, 'model') else f"tmp_{int(time.time())}.db")
         # Fetch out arguments for saving
         save = kwargs.pop("save", False)
         InfData = kwargs.pop("InfData", False)
