@@ -856,6 +856,7 @@ class Hierarchical(object):
         obs_data = obs_data.convert_dtypes()
         if not 'trial' in obs_data.columns:
             obs_data['trial'] = obs_data.groupby('subj_idx').cumcount()
+            obs_data['trial'] = obs_data['trial'].astype('int')
         obs_data.reset_index(inplace=True)
         obs_data['rt'] = obs_data['rt'].astype('float32')
         obs_data['response'] = obs_data['response'].astype('int')
@@ -888,7 +889,10 @@ class Hierarchical(object):
             save_name = Path(save_name).with_suffix(".nc")
             if not save_name.parent.exists():
                     save_name.parent.mkdir(parents=True, exist_ok=True)
-            InfData_tmp.to_netcdf(save_name)
+            try:       
+                InfData_tmp.to_netcdf(save_name)
+            except OSError as error:
+                print(f"fail to save {save_name}: {error}")
             
         self.InfData = InfData_tmp
         
