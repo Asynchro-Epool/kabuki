@@ -893,6 +893,7 @@ class Hierarchical(object):
                 InfData_tmp.to_netcdf(save_name)
             except OSError as error:
                 print(f"fail to save {save_name}: {error}")
+                return InfData_tmp
             
         self.InfData = InfData_tmp
         
