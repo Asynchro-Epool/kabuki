@@ -733,6 +733,7 @@ class Hierarchical(object):
         ppc = kwargs.pop("ppc", False)
         chains = kwargs.pop("chains", 1)
         
+        self.chains = chains 
         if chains > 1:
             db = "pickle"
   
@@ -774,7 +775,6 @@ class Hierarchical(object):
             self.mc.sample(*args, **kwargs)
             self.ntrace = self.mc.db._traces['deviance']._trace[0].size
         
-        self.chains = chains 
         if save_name:
             save_name = Path(save_name)
             self.save_name = save_name
@@ -809,11 +809,11 @@ class Hierarchical(object):
                     except OSError as error:
                         print(f"fail to delete {filename}: {error}")     
                                        
-        
-        index = pd.MultiIndex.from_product([np.arange(self.chains), np.arange(self.ntrace)], names=['chain', 'trace'])
-        index = pd.DataFrame({"draw": np.arange(self.chains*self.ntrace)},index = index).reset_index().set_index("draw")
-        self.draw_index = index
+        self.gen_draw_index()
         self.sampled = True
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print("hddm sampling elpased time: ", round(elapsed_time,3), "s")
         
         try:
             if InfData:
@@ -823,9 +823,6 @@ class Hierarchical(object):
             
         self.gen_stats()
         
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print("hddm sampling elpased time: ", round(elapsed_time,3), "s")
         return self.InfData if hasattr(self, 'InfData') else self.mc
     
     def conver2InfData(self, loglike = False, ppc = False, save_name = False, **kwargs):
@@ -899,6 +896,14 @@ class Hierarchical(object):
         
         return self.InfData
     
+    def gen_draw_index(self): 
+        
+        index = pd.MultiIndex.from_product([np.arange(self.chains), np.arange(self.ntrace)], names=['chain', 'trace'])
+        index = pd.DataFrame({"draw": np.arange(self.chains*self.ntrace)},index = index).reset_index().set_index("draw")
+        self.draw_index = index
+        
+        return self.draw_index
+    
     def get_posterior_trace(self):
         
         if not self.sampled:
@@ -909,7 +914,7 @@ class Hierarchical(object):
         
         trace_tmp = self.get_traces()
         trace_tmp.index.name = 'draw'
-        trace_tmp = trace_tmp.merge(self.draw_index, how='left', left_index=True, right_index=True)
+        trace_tmp = trace_tmp.merge(self.gen_draw_index(), how='left', left_index=True, right_index=True)
         trace_tmp.reset_index(drop=True,inplace=True)
         trace_tmp.rename(columns={"trace":"draw"}, inplace=True)
         trace_tmp.set_index(["chain", "draw"], inplace=True)
@@ -917,6 +922,9 @@ class Hierarchical(object):
         return trace_tmp
     
     def get_pointwise_loglike(self, **kwargs):
+        
+        import time
+        start_time = time.time()
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
@@ -929,9 +937,16 @@ class Hierarchical(object):
         lppd = pointwise_like_gen(self, **kwargs)
         self.lppd = self._reset_draw_index(lppd)
         
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print("The time of calculation of loglikelihood: ", round(elapsed_time,3), "s")
+        
         return self.lppd
     
     def gen_ppc(self, **kwargs):
+        
+        import time
+        start_time = time.time()
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
@@ -944,12 +959,15 @@ class Hierarchical(object):
         ppc = post_pred_gen(self, **kwargs)
         self.ppc = self._reset_draw_index(ppc)
         
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print("The time of generation of ppc: ", round(elapsed_time,3), "s")
+        
         return self.ppc
     
     def _reset_draw_index(self, data):
         
-        index = self.draw_index
-        data = data.merge(index, how='left', left_index=True, right_index=True)
+        data = data.merge(self.gen_draw_index(), how='left', left_index=True, right_index=True)
         
         obs_df = self.data
         if not 'trial' in obs_df:
