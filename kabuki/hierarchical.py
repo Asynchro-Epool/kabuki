@@ -749,7 +749,7 @@ class Hierarchical(object):
                 
             dbname_path = Path(dbname) 
             name, extension = dbname_path.stem, dbname_path.suffix
-            dbnames = [name + "_chain{}_{}".format(i,int(time.time())) + extension for i in range(chains)]
+            dbnames = ["{}_chain{}_{}".format(name, i,int(time.time())) + extension for i in range(chains)]
             
             if parallel:     
                 from joblib import Parallel, delayed
