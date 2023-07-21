@@ -723,6 +723,7 @@ class Hierarchical(object):
 
         # Fetch out arguments for db backend
         db = kwargs.pop("db", "ram")
+        parallel = kwargs.pop("parallel", True)
         dbname = kwargs.pop("dbname", "{}.db".format(self.model) if hasattr(self, 'model') else "tmp_{}.db".format(int(time.time())))
         # Fetch out arguments for saving
         save_name = kwargs.pop("save_name", False)
@@ -750,9 +751,12 @@ class Hierarchical(object):
             name, extension = dbname_path.stem, dbname_path.suffix
             dbnames = [name + "_chain{}".format(i) + extension for i in range(chains)]
             
-            from joblib import Parallel, delayed
-            n_jobs = min(psutil.cpu_count(), chains)
-            ms = Parallel(n_jobs=n_jobs)(delayed(sample_single_chain)(dbn, db, *args, **kwargs) for dbn in dbnames)
+            if parallel:     
+                from joblib import Parallel, delayed
+                n_jobs = min(psutil.cpu_count(), chains)
+                ms = Parallel(n_jobs=n_jobs)(delayed(sample_single_chain)(dbn, db, *args, **kwargs) for dbn in dbnames)
+            else:
+                ms = [sample_single_chain(dbn, db, *args, **kwargs) for dbn in dbnames]
             
             model = concat_models(ms) 
             model.mc.db.filename = "tmp_{}.db".format(int(time.time()))
@@ -817,7 +821,7 @@ class Hierarchical(object):
         
         try:
             if InfData:
-                self.conver2InfData(loglike = loglike, ppc = ppc, save_name = save_name, **kwargs)  
+                self.conver2InfData(loglike = loglike, ppc = ppc, save_name = save_name, parallel = parallel, **kwargs)  
         except:
             print("fail to convert to InferenceData")
             
