@@ -758,11 +758,12 @@ class Hierarchical(object):
             else:
                 ms = [sample_single_chain(dbn, db, *args, **kwargs) for dbn in dbnames]
             
+            ntrace = ms[0].mc.db._traces['deviance']._trace[0].size
             model = concat_models(ms) 
             model.mc.db.filename = "tmp_{}.db".format(int(time.time()))
             model.mc.db._finalize()
             self.__dict__ = model.__dict__        
-            self.ntrace = ms[0].mc.db._traces['deviance']._trace[0].size
+            self.ntrace = ntrace
 
         else:
             # init mc if needed
