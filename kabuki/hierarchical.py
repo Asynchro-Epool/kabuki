@@ -716,8 +716,6 @@ class Hierarchical(object):
         """
         
         from pathlib import Path
-        from copy import deepcopy
-        import psutil
         import time
         start_time = time.time()
 
@@ -733,15 +731,15 @@ class Hierarchical(object):
         loglike = kwargs.pop("loglike", False)
         ppc = kwargs.pop("ppc", False)
         chains = kwargs.pop("chains", 1)
-        
-        self.chains = chains 
+         
         if chains > 1:
+            from copy import deepcopy
             db = "pickle"
   
             # sample
-            def sample_single_chain(dbname, db, *args, **kwargs):
+            def sample_single_chain(hddm, dbname, db, *args, **kwargs):
                       
-                hddm = deepcopy(self)
+                # hddm = deepcopy(self)
                 hddm.mcmc(dbname=dbname, db=db)
                 hddm.sample(*args, **kwargs)
                 
@@ -749,14 +747,16 @@ class Hierarchical(object):
                 
             dbname_path = Path(dbname) 
             name, extension = dbname_path.stem, dbname_path.suffix
-            dbnames = ["{}_chain{}_{}".format(name, i,int(time.time())) + extension for i in range(chains)]
+            hddms = {"{}_chain{}_{}".format(name, i,int(time.time())) + extension:deepcopy(self) for i in range(chains)}
+            dbnames = list(hddms.keys())
             
             if parallel:     
                 from joblib import Parallel, delayed
+                import psutil
                 n_jobs = min(psutil.cpu_count(), chains)
-                ms = Parallel(n_jobs=n_jobs)(delayed(sample_single_chain)(dbn, db, *args, **kwargs) for dbn in dbnames)
+                ms = Parallel(n_jobs=n_jobs)(delayed(sample_single_chain)(hddm, dbn, db, *args, **kwargs) for dbn,hddm in hddms.items())
             else:
-                ms = [sample_single_chain(dbn, db, *args, **kwargs) for dbn in dbnames]
+                ms = [sample_single_chain(hddm, dbn, db, *args, **kwargs) for dbn,hddm in hddms.items()]
             
             ntrace = ms[0].mc.db._traces['deviance']._trace[0].size
             model = concat_models(ms) 
@@ -813,18 +813,19 @@ class Hierarchical(object):
                         # print(f"delete {filename}")
                     except OSError as error:
                         print(f"fail to delete {filename}: {error}")     
-                                       
+        
+        self.chains = chains                               
         self.gen_draw_index()
         self.sampled = True
         end_time = time.time()
         elapsed_time = end_time - start_time
         print("hddm sampling elpased time: ", round(elapsed_time,3), "s")
         
-        try:
-            if InfData:
+        if InfData:
+            try:
                 self.conver2InfData(loglike = loglike, ppc = ppc, save_name = save_name, parallel = parallel, **kwargs)  
-        except:
-            print("fail to convert to InferenceData")
+            except:
+                print("fail to convert to InferenceData")
             
         self.gen_stats()
         
