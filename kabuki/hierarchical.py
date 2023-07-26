@@ -918,7 +918,16 @@ class Hierarchical(object):
         if hasattr(self, 'xdata_posterior'):
             return self.xdata_posterior
         
+        
         trace_tmp = self.get_traces()
+        
+        def inv_logit(x):
+            import numpy as np
+            return np.exp(x) / (1 + np.exp(x))
+        trans_cols = trace_tmp.filter(regex='_trans').columns
+        trace_tmp[trans_cols] = inv_logit(trace_tmp[trans_cols])
+        trace_tmp.columns = trace_tmp.columns.str.replace("_trans", "")
+        
         trace_tmp.index.name = 'draw'
         trace_tmp = trace_tmp.merge(self.gen_draw_index(), how='left', left_index=True, right_index=True)
         trace_tmp.reset_index(drop=True,inplace=True)
