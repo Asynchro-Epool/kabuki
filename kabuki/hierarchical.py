@@ -853,6 +853,9 @@ class Hierarchical(object):
         import arviz as az
         from pathlib import Path
         
+        n_ppc = kwargs.pop("n_ppc", None)
+        n_loglik = kwargs.pop("n_loglik", None)
+        
         InfData_tmp = {}
         # Observations
         try:
@@ -877,13 +880,13 @@ class Hierarchical(object):
         
         # Point-wise log likelihood
         if loglike:
-            loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike(**kwargs))
+            loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike(n_loglik = n_loglik, **kwargs))
             loglike_data = loglike_data.set_coords(["subj_idx", "trial"])
             InfData_tmp['log_likelihood'] = loglike_data
         
         # ppc    
         if ppc:
-            ppc_data = xr.Dataset.from_dataframe(self.gen_ppc(**kwargs))
+            ppc_data = xr.Dataset.from_dataframe(self.gen_ppc(n_ppc = n_ppc, **kwargs))
             ppc_data = ppc_data.set_coords(["subj_idx", "trial"])
             InfData_tmp['posterior_predictive'] = ppc_data
             
@@ -949,7 +952,7 @@ class Hierarchical(object):
         
         return trace_tmp
     
-    def get_pointwise_loglike(self, **kwargs):
+    def get_pointwise_loglike(self, n_loglik = None,**kwargs):
         
         import time
         start_time = time.time()
@@ -962,7 +965,7 @@ class Hierarchical(object):
         if hasattr(self, 'lppd'):
             return self.lppd
         
-        lppd = pointwise_like_gen(self, **kwargs)
+        lppd = pointwise_like_gen(self, samples = n_loglik, **kwargs)
         self.lppd = self._reset_draw_index(lppd)
         
         end_time = time.time()
@@ -971,7 +974,7 @@ class Hierarchical(object):
         
         return self.lppd
     
-    def gen_ppc(self, **kwargs):
+    def gen_ppc(self, n_ppc = None, **kwargs):
         
         import time
         start_time = time.time()
@@ -984,7 +987,7 @@ class Hierarchical(object):
         if hasattr(self, 'ppc'):
             return self.ppc
         
-        ppc = post_pred_gen(self, **kwargs)
+        ppc = post_pred_gen(self, samples = n_ppc,**kwargs)
         self.ppc = self._reset_draw_index(ppc)
         
         end_time = time.time()
