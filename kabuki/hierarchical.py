@@ -855,19 +855,22 @@ class Hierarchical(object):
         
         InfData_tmp = {}
         # Observations
-        obs_data = self.data.copy()
-        obs_data = obs_data.convert_dtypes()
-        if not 'trial' in obs_data.columns:
-            obs_data['trial'] = obs_data.groupby('subj_idx').cumcount()
-            obs_data['trial'] = obs_data['trial'].astype('int')
-        obs_data.reset_index(inplace=True)
-        obs_data['rt'] = obs_data['rt'].astype('float32')
-        obs_data['response'] = obs_data['response'].astype('int')
-        obs_data['subj_idx'] = obs_data['subj_idx'].astype('int')
-        obs_data.index.name = 'obs_id'
-        xdata_observed = xr.Dataset.from_dataframe(obs_data)
-        xdata_observed = xdata_observed.set_coords(["subj_idx", "trial"])
-        InfData_tmp['observed_data'] = xdata_observed
+        try:
+            obs_data = self.data.copy()
+            obs_data = obs_data.convert_dtypes()
+            if not 'trial' in obs_data.columns:
+                obs_data['trial'] = obs_data.groupby('subj_idx').cumcount()
+                obs_data['trial'] = obs_data['trial'].astype('int')
+            obs_data.reset_index(inplace=True)
+            obs_data['rt'] = obs_data['rt'].astype('float32')
+            obs_data['response'] = obs_data['response'].astype('int')
+            obs_data['subj_idx'] = obs_data['subj_idx'].astype('int')
+            obs_data.index.name = 'obs_id'
+            xdata_observed = xr.Dataset.from_dataframe(obs_data)
+            xdata_observed = xdata_observed.set_coords(["subj_idx", "trial"])
+            InfData_tmp['observed_data'] = xdata_observed
+        except Exception as error:
+            print(f"fail to convert observed data: {error}")
         
         # posteriors
         InfData_tmp['posterior'] = xr.Dataset.from_dataframe(self.get_posterior_trace())
@@ -886,13 +889,23 @@ class Hierarchical(object):
             
         # convert to InfData
         print("Start converting to InferenceData...")
-        InfData_tmp = az.InferenceData(**InfData_tmp)
+        try:  
+            InfData_tmp = az.InferenceData(**InfData_tmp)
+        except Exception as error:
+            print(f"fail to convert to InferenceData: {error}")
+            return    
       
         if save_name:   
             save_name = Path(save_name).with_suffix(".nc")
             if not save_name.parent.exists():
                     save_name.parent.mkdir(parents=True, exist_ok=True)
             try:       
+                # deleting existing file
+                if save_name.is_file():
+                    try:
+                        save_name.unlink()
+                    except OSError as error:
+                        print(f"{save_name} is existed, but fail to delete : {error}")
                 InfData_tmp.to_netcdf(save_name)
             except OSError as error:
                 print(f"fail to save {save_name}: {error}")
