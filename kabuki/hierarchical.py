@@ -726,9 +726,10 @@ class Hierarchical(object):
         # Fetch out arguments for saving
         save_name = kwargs.pop("save_name", False)
         InfData = kwargs.pop("InfData", False)
-        if InfData | save_name:
+        if InfData:
             db = "pickle" 
-        if save_name:    
+        if save_name:   
+            db = "pickle"  
             save_name = Path(save_name)
             self.save_name = save_name
             if not save_name.parent.exists():
@@ -774,6 +775,7 @@ class Hierarchical(object):
             self.ntrace = ntrace
 
         else:
+            dbnames = [dbname] # for deleting the tmp file `dbname`
             # init mc if needed
             if self.mc == None:
                 self.mcmc(db=db, dbname=dbname)
