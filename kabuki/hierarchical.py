@@ -826,7 +826,7 @@ class Hierarchical(object):
         
         if InfData:
             try:
-                self.conver2InfData(loglike = loglike, ppc = ppc, save_name = save_name, parallel = parallel, **kwargs)  
+                self.to_InfData(loglike = loglike, ppc = ppc, save_name = save_name, parallel = parallel, **kwargs)  
             except:
                 print("fail to convert to InferenceData")
             
@@ -834,7 +834,7 @@ class Hierarchical(object):
         
         return self.InfData if hasattr(self, 'InfData') else self.mc
     
-    def conver2InfData(self, loglike = False, ppc = False, save_name = False, **kwargs):
+    def to_InfData(self, loglike = False, ppc = False, save_name = False, **kwargs):
         """
         convert HDDM to InferenceData
         
@@ -884,13 +884,15 @@ class Hierarchical(object):
         # Point-wise log likelihood
         if loglike:
             loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike(n_loglik = n_loglik, **kwargs))
-            loglike_data = loglike_data.set_coords(["subj_idx", "trial"])
+            coords = [i for i in ["subj_idx", "trial"] if i in ppc_data.variables]
+            loglike_data = loglike_data.set_coords(coords)
             InfData_tmp['log_likelihood'] = loglike_data
         
         # ppc    
         if ppc:
             ppc_data = xr.Dataset.from_dataframe(self.gen_ppc(n_ppc = n_ppc, **kwargs))
-            ppc_data = ppc_data.set_coords(["subj_idx", "trial"])
+            coords = [i for i in ["subj_idx", "trial"] if i in ppc_data.variables]
+            ppc_data = ppc_data.set_coords(coords)
             InfData_tmp['posterior_predictive'] = ppc_data
             
         # convert to InfData
@@ -1001,19 +1003,25 @@ class Hierarchical(object):
     
     def _reset_draw_index(self, data):
         
+        # add chains and trace index
         data = data.merge(self.gen_draw_index(), how='left', left_index=True, right_index=True)
         
         obs_df = self.data
         if not 'trial' in obs_df:
             obs_df['trial'] = obs_df.groupby('subj_idx').cumcount()
         obs_df.index.name = 'trial_idx'
+        # add trial index
         data = data.merge(obs_df['trial'], how='left', left_index=True, right_index=True)    
         
         data.reset_index(inplace=True)
         data.drop(["draw"], axis=1, inplace=True)
         
-        data['node'] = data.node.str.extract(r'(\d+)').astype(int)
-        data.rename(columns={"trace":"draw", "node":"subj_idx", "trial_idx":"obs_id"}, inplace=True)
+        data['subj_idx'] = data['node'].str.extract(r'(\d+)', expand = False)
+        if pd.isna(data['subj_idx']).all():
+            data.drop(["subj_idx"], axis=1, inplace=True)
+        else:
+            data['subj_idx'] = data['subj_idx'].astype(int)
+        data.rename(columns={"trace":"draw", "trial_idx":"obs_id"}, inplace=True)
         data.set_index(["chain", "draw", "obs_id"], inplace=True)
         
         return data
