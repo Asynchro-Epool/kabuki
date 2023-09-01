@@ -726,8 +726,16 @@ class Hierarchical(object):
         # Fetch out arguments for saving
         save_name = kwargs.pop("save_name", False)
         InfData = kwargs.pop("InfData", False)
-        if InfData:
+        if InfData | save_name:
             db = "pickle" 
+        if save_name:    
+            save_name = Path(save_name)
+            self.save_name = save_name
+            if not save_name.parent.exists():
+                save_name.parent.mkdir(parents=True, exist_ok=True)
+            
+            db_path = save_name.with_suffix(".db")
+            hddm_path = save_name.with_suffix(".hddm")
         loglike = kwargs.pop("loglike", False)
         ppc = kwargs.pop("ppc", False)
         chains = kwargs.pop("chains", 1)
@@ -781,13 +789,6 @@ class Hierarchical(object):
             self.ntrace = self.mc.db._traces['deviance']._trace[0].size
         
         if save_name:
-            save_name = Path(save_name)
-            self.save_name = save_name
-            if not save_name.parent.exists():
-                save_name.parent.mkdir(parents=True, exist_ok=True)
-            
-            db_path = save_name.with_suffix(".db")
-            hddm_path = save_name.with_suffix(".hddm")
             
             db_tmp = self.mc.db
             pre_filename = Path(db_tmp.filename).with_suffix(".db")
