@@ -282,109 +282,6 @@ def post_pred_compare_stats(sampled_stats, data_stats, evals=None):
     return results.drop("NaN", axis=1)
 
 
-def _post_pred_generate(
-    bottom_node, samples=500, data=None, append_data=False, add_model_parameters=False
-):
-    """Generate posterior predictive data from a single observed node."""
-    datasets = []
-
-    ##############################
-    # Sample and generate stats
-    # Potentially parallelize this one !
-    for sample in range(samples):
-        _parents_to_random_posterior_sample(bottom_node)
-        # Generate data from bottom node
-        sampled_data = bottom_node.random(add_model_parameters=add_model_parameters)
-        if append_data and data is not None:
-            sampled_data = sampled_data.join(data.reset_index(), lsuffix="_sampled")
-        datasets.append(sampled_data)
-
-    return datasets
-
-
-def post_pred_gen(
-    model,
-    groupby=None,
-    samples=500,
-    append_data=False,
-    add_model_parameters=False,
-    progress_bar=True,
-):
-    """Run posterior predictive check on a model.
-
-    :Arguments:
-        model : kabuki.Hierarchical
-            Kabuki model over which to compute the ppc on.
-
-    :Optional:
-        samples : int
-            How many samples to generate for each node.
-        groupby : list
-            Alternative grouping of the data. If not supplied, uses splitting
-            of the model (as provided by depends_on).
-        append_data : bool (default=False)
-            Whether to append the observed data of each node to the replicatons.
-        progress_bar : bool (default=True)
-            Display progress bar
-
-    :Returns:
-        Hierarchical pandas.DataFrame with multiple sampled RT data sets.
-        1st level: wfpt node
-        2nd level: posterior predictive sample
-        3rd level: original data index
-
-    :See also:
-        post_pred_stats
-    """
-    results = {}
-
-    # Progress bar
-    if progress_bar:
-        n_iter = len(model.get_observeds())
-        bar = pbar.progress_bar(n_iter)
-        bar_iter = 0
-    else:
-        print("Sampling...")
-
-    if groupby is None:
-        iter_data = (
-            (name, model.data.iloc[obs["node"].value.index])
-            for name, obs in model.iter_observeds()
-        )
-    else:
-        iter_data = model.data.groupby(groupby)
-
-    for name, data in iter_data:
-        node = model.get_data_nodes(data.index)
-
-        if progress_bar:
-            bar.update(bar_iter)
-            bar_iter += 1
-
-        if node is None or not hasattr(node, "random"):
-            continue  # Skip
-
-        # If we used data grouping --> name is a tuple which doesn't play well with pd.concat later on
-        # We exchange the name for the name of the observed node we currently process
-        if groupby is not None:
-            new_name = node.__str__()
-        else:  # if groupby was None --> keep name as is
-            new_name = name
-
-        # Sample and generate stats
-        datasets = _post_pred_generate(
-            node,
-            samples=samples,
-            data=data,
-            append_data=append_data,
-            add_model_parameters=add_model_parameters,
-        )
-        results[new_name] = pd.concat(
-            datasets, names=["sample"], keys=list(range(len(datasets)))
-        )
-    return pd.concat(results, names=["node"])
-
-
 def post_pred_stats(
     data, sim_datasets, stats=None, plot=False, bins=100, evals=None, call_compare=True
 ):
@@ -767,6 +664,8 @@ def _post_pred_generate(bottom_node, samples=None, data=None, append_data=False)
 
     return datasets
 
+
+# note, it is edited by custom
 def post_pred_gen(model, groupby=None, samples=None, append_data=False, progress_bar=False, parallel=True):
     """Run posterior predictive check on a model.
     :Arguments:
@@ -859,15 +758,6 @@ def post_pred_gen(model, groupby=None, samples=None, append_data=False, progress
 
     return pd.concat(results, names=['node'])
 
-def _parents_to_random_posterior_sample(bottom_node, pos=None):
-    """Walks through parents and sets them to pos sample."""
-    import pymc as pm
-    import numpy as np
-    for i, parent in enumerate(bottom_node.extended_parents):
-
-        assert len(parent.trace()) >= pos, "pos larger than posterior sample size"
-        parent.value = parent.trace()[pos]
-# note, it is edited by custom
 def _pointwise_like_generate(bottom_node, samples=None, data=None, append_data=False):
     """Generate posterior predictive data from a single observed node."""
     import pymc as pm
