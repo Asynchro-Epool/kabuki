@@ -841,14 +841,6 @@ def post_pred_gen(model, groupby=None, samples=None, append_data=False, progress
 
     return pd.concat(results, names=['node'])
 
-def _parents_to_random_posterior_sample(bottom_node, pos=None):
-    """Walks through parents and sets them to pos sample."""
-    import pymc as pm
-    import numpy as np
-    for i, parent in enumerate(bottom_node.extended_parents):
-
-        assert len(parent.trace()) >= pos, "pos larger than posterior sample size"
-        parent.value = parent.trace()[pos]
 
 # note, it is edited by custom
 def _pointwise_like_generate(bottom_node, samples=None, data=None, append_data=False):

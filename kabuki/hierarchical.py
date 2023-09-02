@@ -722,7 +722,7 @@ class Hierarchical(object):
         # Fetch out arguments for db backend
         db = kwargs.pop("db", "ram")
         parallel = kwargs.pop("parallel", True)
-        dbname = kwargs.pop("dbname", "{}.db".format(self.model) if hasattr(self, 'model') else "tmp.db")
+        dbname = kwargs.pop("dbname", "tmp.db")
         # Fetch out arguments for saving
         save_name = kwargs.pop("save_name", False)
         InfData = kwargs.pop("InfData", False)
@@ -775,7 +775,7 @@ class Hierarchical(object):
             self.ntrace = ntrace
 
         else:
-            dbnames = [dbname] # for deleting the tmp file `dbname`
+            dbnames = [dbname] if dbname == "tmp.db" else [] # for deleting the tmp file `dbname`
             # init mc if needed
             if self.mc == None:
                 self.mcmc(db=db, dbname=dbname)
