@@ -723,6 +723,8 @@ class Hierarchical(object):
         db = kwargs.pop("db", "ram")
         parallel = kwargs.pop("parallel", True)
         dbname = kwargs.pop("dbname", "tmp.db")
+        if dbname != "tmp.db":
+            db = "pickle" 
         # Fetch out arguments for saving
         save_name = kwargs.pop("save_name", False)
         InfData = kwargs.pop("InfData", False)
@@ -735,7 +737,7 @@ class Hierarchical(object):
             if not save_name.parent.exists():
                 save_name.parent.mkdir(parents=True, exist_ok=True)
             
-            db_path = save_name.with_suffix(".db")
+            dbname = save_name.with_suffix(".db")
             hddm_path = save_name.with_suffix(".hddm")
         loglike = kwargs.pop("loglike", False)
         ppc = kwargs.pop("ppc", False)
@@ -754,9 +756,8 @@ class Hierarchical(object):
                 
                 return hddm
                 
-            dbname_path = Path(dbname) 
-            name, extension = dbname_path.stem, dbname_path.suffix
-            hddms = {"{}_chain{}_{}".format(name, i,int(time.time())) + extension:deepcopy(self) for i in range(chains)}
+            dbname = Path(dbname) 
+            hddms = {"{}_chain{}_{}{}".format(dbname.with_suffix(""), i,int(time.time()),dbname.suffix):deepcopy(self) for i in range(chains)}
             dbnames = list(hddms.keys())
             
             if parallel:     
@@ -769,7 +770,7 @@ class Hierarchical(object):
             
             ntrace = ms[0].mc.db._traces['deviance']._trace[0].size
             model = concat_models(ms) 
-            model.mc.db.filename = "{}_{}.db".format(name, int(time.time()))
+            model.mc.db.filename = "{}_{}.db".format(dbname.stem, int(time.time()))
             model.mc.db._finalize()
             self.__dict__ = model.__dict__        
             self.ntrace = ntrace
@@ -790,32 +791,6 @@ class Hierarchical(object):
             self.mc.sample(*args, **kwargs)
             self.ntrace = self.mc.db._traces['deviance']._trace[0].size
         
-        if save_name:
-            
-            db_tmp = self.mc.db
-            pre_filename = Path(db_tmp.filename).with_suffix(".db")
-            if pre_filename.is_file():
-                    try:
-                        pre_filename.unlink()
-                    except OSError as error:
-                        print(f"fail to delete {pre_filename}: {error}") 
-            db_tmp.filename = str(db_path)
-            db_tmp._finalize()
-            
-            self.load_db(str(db_path), db=db)
-            
-            self.save(hddm_path)
-        
-        # delete _tmp.db cache
-        if db == "pickle":        
-            for filename in dbnames:
-                path = Path(filename)
-                if path.is_file():
-                    try:
-                        path.unlink()
-                        # print(f"delete {filename}")
-                    except OSError as error:
-                        print(f"fail to delete {filename}: {error}")     
         
         self.chains = chains                               
         self.gen_draw_index()
@@ -832,6 +807,33 @@ class Hierarchical(object):
             
         self.gen_stats()
         
+        if save_name:
+            
+            db_tmp = self.mc.db
+            pre_filename = Path(db_tmp.filename).with_suffix(".db")
+            if pre_filename.is_file():
+                    try:
+                        pre_filename.unlink()
+                    except OSError as error:
+                        print(f"fail to delete {pre_filename}: {error}") 
+            db_tmp.filename = str(dbname)
+            db_tmp._finalize()
+            
+            # self.load_db(str(db_path), db=db)
+            
+            self.save(hddm_path)
+        
+        # delete _tmp.db cache
+        if db == "pickle":        
+            for filename in dbnames:
+                path = Path(filename)
+                if path.is_file():
+                    try:
+                        path.unlink()
+                        # print(f"delete {filename}")
+                    except OSError as error:
+                        print(f"fail to delete {filename}: {error}")  
+                        
         return self.InfData if hasattr(self, 'InfData') else self.mc
     
     def to_InfData(self, loglike = False, ppc = False, save_name = False, **kwargs):
