@@ -708,7 +708,7 @@ class Hierarchical(object):
                 Number of chains to sample from.
             save_name : str <default=False>
                 The path and file name to save the model. e.g. "model/hddm"
-            InfData : bool <default=False>
+            return_infdata : bool <default=False>
                 Whether to convert the model to InferenceData. Accept loglike and ppc arguments.
 
         :Note:
@@ -727,8 +727,8 @@ class Hierarchical(object):
             db = "pickle" 
         # Fetch out arguments for saving
         save_name = kwargs.pop("save_name", False)
-        InfData = kwargs.pop("InfData", False)
-        if InfData:
+        return_infdata = kwargs.pop("return_infdata", False)
+        if return_infdata:
             db = "pickle" 
         if save_name:   
             db = "pickle"  
@@ -795,18 +795,17 @@ class Hierarchical(object):
         self.chains = chains                               
         self.gen_draw_index()
         self.sampled = True
+        self.gen_stats()
         end_time = time.time()
         elapsed_time = end_time - start_time
         print("hddm sampling elpased time: ", round(elapsed_time,3), "s")
         
-        if InfData:
+        if return_infdata:
             try:
-                self.to_InfData(loglike = loglike, ppc = ppc, save_name = save_name, parallel = parallel, **kwargs)  
+                self.to_infdata(loglike = loglike, ppc = ppc, save_name = save_name, parallel = parallel, **kwargs)  
             except:
                 print("fail to convert to InferenceData")
-            
-        self.gen_stats()
-        
+                    
         if save_name:
             
             db_tmp = self.mc.db
@@ -834,9 +833,9 @@ class Hierarchical(object):
                     except OSError as error:
                         print(f"fail to delete {filename}: {error}")  
                         
-        return self.InfData if hasattr(self, 'InfData') else self.mc
+        return self.infdata if hasattr(self, 'infdata') else self.mc
     
-    def to_InfData(self, loglike = False, ppc = False, save_name = False, **kwargs):
+    def to_infdata(self, loglike = False, ppc = False, save_name = False, **kwargs):
         """
         convert HDDM to InferenceData
         
@@ -886,7 +885,7 @@ class Hierarchical(object):
         # Point-wise log likelihood
         if loglike:
             loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike(n_loglik = n_loglik, **kwargs))
-            coords = [i for i in ["subj_idx", "trial"] if i in ppc_data.variables]
+            coords = [i for i in ["subj_idx", "trial"] if i in loglike_data.variables]
             loglike_data = loglike_data.set_coords(coords)
             InfData_tmp['log_likelihood'] = loglike_data
         
@@ -897,7 +896,7 @@ class Hierarchical(object):
             ppc_data = ppc_data.set_coords(coords)
             InfData_tmp['posterior_predictive'] = ppc_data
             
-        # convert to InfData
+        # convert to infdata
         print("Start converting to InferenceData...")
         try:  
             InfData_tmp = az.InferenceData(**InfData_tmp)
@@ -921,9 +920,9 @@ class Hierarchical(object):
                 print(f"fail to save {save_name}: {error}")
                 return InfData_tmp
             
-        self.InfData = InfData_tmp
+        self.infdata = InfData_tmp
         
-        return self.InfData
+        return self.infdata
     
     def gen_draw_index(self): 
         
