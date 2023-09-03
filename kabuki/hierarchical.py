@@ -844,8 +844,12 @@ class Hierarchical(object):
                 The path and file name to save the model. e.g. "model/hddm_InfData.nc"
             loglike : bool <default=False>
                 Whether to calculate point-wise log likelihood. 
+            n_loglik : number <default=None>
+                The number of the draw to use to calculate the pointwise log-likelihood. None means use all draws for calculation. 
             ppc : bool <default=False>
                 Whether to generate posterior predictive checks.
+            n_ppc : number <default=None>
+                The number of the draw to use to generate the posterior prediction. None means use all draws for generation.     
         
         return: ArViz InferenceData
         """
@@ -885,14 +889,14 @@ class Hierarchical(object):
         # Point-wise log likelihood
         if loglike:
             loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike(n_loglik = n_loglik, **kwargs))
-            coords = [i for i in ["subj_idx", "trial"] if i in loglike_data.variables]
+            coords = [coords for coords in list(loglike_data.variables) if coords != 'log_lik']
             loglike_data = loglike_data.set_coords(coords)
             InfData_tmp['log_likelihood'] = loglike_data
         
         # ppc    
         if ppc:
             ppc_data = xr.Dataset.from_dataframe(self.gen_ppc(n_ppc = n_ppc, **kwargs))
-            coords = [i for i in ["subj_idx", "trial"] if i in ppc_data.variables]
+            coords = [coords for coords in list(ppc_data.variables) if coords not in ["rt", "response"]]
             ppc_data = ppc_data.set_coords(coords)
             InfData_tmp['posterior_predictive'] = ppc_data
             
