@@ -289,6 +289,7 @@ def post_pred_gen(
     append_data=False,
     add_model_parameters=False,
     progress_bar=True,
+    **kwargs
 ):
     """Run posterior predictive check on a model.
 
@@ -954,7 +955,7 @@ def _pointwise_like_generate(bottom_node, samples=None, data=None, append_data=F
 
     return datasets
 
-def pointwise_like_gen(model, groupby=None, samples=None, append_data=False, progress_bar=False, parallel=True):
+def pointwise_like_gen(model, groupby=None, samples=None, append_data=False, progress_bar=False, parallel=True, **kwargs):
     """Run posterior predictive check on a model.
     :Arguments:
         model : kabuki.Hierarchical

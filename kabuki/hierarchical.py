@@ -719,13 +719,14 @@ class Hierarchical(object):
         import time
         start_time = time.time()
 
-        # Fetch out arguments for db backend
+        # Fetch out existing args
         db = kwargs.pop("db", "ram")
-        parallel = kwargs.pop("parallel", True)
         dbname = kwargs.pop("dbname", "tmp.db")
         if dbname != "tmp.db":
             db = "pickle" 
-        # Fetch out arguments for saving
+        
+        # Fetch out custom args
+        parallel = kwargs.pop("parallel", True)
         save_name = kwargs.pop("save_name", False)
         return_infdata = kwargs.pop("return_infdata", False)
         if return_infdata:
@@ -803,8 +804,9 @@ class Hierarchical(object):
         if return_infdata:
             try:
                 self.to_infdata(loglike = loglike, ppc = ppc, save_name = save_name, parallel = parallel, **kwargs)  
-            except:
-                print("fail to convert to InferenceData")
+            except Exception as error:
+                print(f"fail to convert to InferenceData: {error}")
+                self.to_infdata()
                     
         if save_name:
             
