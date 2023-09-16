@@ -971,13 +971,20 @@ class Hierarchical(object):
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
-            
+        if n_loglik and n_loglik > self.ntrace:
+            ValueError("n_loglik could not greater than self.ntrace")
+
         from kabuki.analyze import pointwise_like_gen
         
         if hasattr(self, 'lppd'):
             return self.lppd
         
-        lppd = pointwise_like_gen(self, samples = n_loglik, **kwargs)
+        if n_loglik:
+            lppd = pointwise_like_gen(self, samples = n_loglik * self.chains, **kwargs)
+            new_draw_index = np.concatenate([np.arange(n_loglik) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
+            lppd.index.set_levels(new_draw_index, level='draw', inplace = True)
+        else:
+            lppd = pointwise_like_gen(self, samples = n_loglik, **kwargs)
         self.lppd = self._reset_draw_index(lppd)
         
         end_time = time.time()
@@ -993,13 +1000,20 @@ class Hierarchical(object):
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
-            
+        if n_ppc and n_ppc > self.ntrace:
+            ValueError("n_ppc could not greater than self.ntrace")
+
         from kabuki.analyze import post_pred_gen
         
         if hasattr(self, 'ppc'):
             return self.ppc
         
-        ppc = post_pred_gen(self, samples = n_ppc,**kwargs)
+        if n_ppc:
+            ppc = post_pred_gen(self, samples = n_ppc * self.chains, **kwargs)
+            new_draw_index = np.concatenate([np.arange(n_ppc) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
+            ppc.index.set_levels(new_draw_index, level='draw', inplace = True)
+        else:
+            ppc = post_pred_gen(self, samples = n_ppc, **kwargs)   
         self.ppc = self._reset_draw_index(ppc)
         
         end_time = time.time()
