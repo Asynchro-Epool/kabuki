@@ -741,7 +741,9 @@ class Hierarchical(object):
             dbname = save_name.with_suffix(".db")
             hddm_path = save_name.with_suffix(".hddm")
         loglike = kwargs.pop("loglike", False)
+        n_loglike = kwargs.pop("n_loglike", None)
         ppc = kwargs.pop("ppc", False)
+        n_ppc = kwargs.pop("n_ppc", None)
         chains = kwargs.pop("chains", 1)
          
         if chains > 1:
@@ -803,7 +805,7 @@ class Hierarchical(object):
         
         if return_infdata:
             try:
-                self.to_infdata(loglike = loglike, ppc = ppc, save_name = save_name, parallel = parallel, **kwargs)  
+                self.to_infdata(loglike = loglike, n_loglike = n_loglike, ppc = ppc, n_ppc = n_ppc, save_name = save_name, parallel = parallel, **kwargs)  
             except Exception as error:
                 print(f"fail to convert to InferenceData: {error}")
                 self.to_infdata()
@@ -846,7 +848,7 @@ class Hierarchical(object):
                 The path and file name to save the model. e.g. "model/hddm_InfData.nc"
             loglike : bool <default=False>
                 Whether to calculate point-wise log likelihood. 
-            n_loglik : number <default=None>
+            n_loglike : number <default=None>
                 The number of the draw to use to calculate the pointwise log-likelihood. None means use all draws for calculation. 
             ppc : bool <default=False>
                 Whether to generate posterior predictive checks.
@@ -864,7 +866,7 @@ class Hierarchical(object):
         from pathlib import Path
         
         n_ppc = kwargs.pop("n_ppc", None)
-        n_loglik = kwargs.pop("n_loglik", None)
+        n_loglike = kwargs.pop("n_loglike", None)
         
         InfData_tmp = {}
         # Observations
@@ -890,7 +892,7 @@ class Hierarchical(object):
         
         # Point-wise log likelihood
         if loglike:
-            loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike(n_loglik = n_loglik, **kwargs))
+            loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs))
             coords = [coords for coords in list(loglike_data.variables) if coords != 'log_lik']
             loglike_data = loglike_data.set_coords(coords)
             InfData_tmp['log_likelihood'] = loglike_data
@@ -964,27 +966,27 @@ class Hierarchical(object):
         
         return trace_tmp
     
-    def get_pointwise_loglike(self, n_loglik = None,**kwargs):
+    def get_pointwise_loglike(self, n_loglike = None,**kwargs):
         
         import time
         start_time = time.time()
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
-        if n_loglik and n_loglik > self.ntrace:
-            ValueError("n_loglik could not greater than self.ntrace")
+        if n_loglike and n_loglike > self.ntrace:
+            ValueError("n_loglike could not greater than self.ntrace")
 
         from kabuki.analyze import pointwise_like_gen
         
         if hasattr(self, 'lppd'):
             return self.lppd
         
-        if n_loglik:
-            lppd = pointwise_like_gen(self, samples = n_loglik * self.chains, **kwargs)
-            new_draw_index = np.concatenate([np.arange(n_loglik) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
-            lppd.index.set_levels(new_draw_index, level='draw', inplace = True)
+        if n_loglike:
+            lppd = pointwise_like_gen(self, samples = n_loglike * self.chains, **kwargs)
+            new_draw_index = np.concatenate([np.arange(n_loglike) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
+            lppd.index = lppd.index.set_levels(new_draw_index, level='draw')
         else:
-            lppd = pointwise_like_gen(self, samples = n_loglik, **kwargs)
+            lppd = pointwise_like_gen(self, samples = n_loglike, **kwargs)
         self.lppd = self._reset_draw_index(lppd)
         
         end_time = time.time()
@@ -1011,7 +1013,7 @@ class Hierarchical(object):
         if n_ppc:
             ppc = post_pred_gen(self, samples = n_ppc * self.chains, **kwargs)
             new_draw_index = np.concatenate([np.arange(n_ppc) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
-            ppc.index.set_levels(new_draw_index, level='draw', inplace = True)
+            ppc.index = ppc.index.set_levels(new_draw_index, level='draw')
         else:
             ppc = post_pred_gen(self, samples = n_ppc, **kwargs)   
         self.ppc = self._reset_draw_index(ppc)
