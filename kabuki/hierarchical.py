@@ -451,6 +451,16 @@ class Hierarchical(object):
             * You have to save traces to db, not RAM.
             * Uses the pickle protocol internally.
         """
+        from pathlib import Path
+
+        if not fname and hasattr(self, "save_name"):
+            fname = Path(self.save_name).with_suffix(".hddm")
+        elif not fname:
+            print("please provide save name")
+            return
+        else:
+            fname = Path(fname).with_suffix(".hddm")
+   
         with open(fname, "wb") as f:
             cloudpickle.dump(self, f)
         # pickle.dump(self, open(fname, 'wb'))
@@ -892,16 +902,12 @@ class Hierarchical(object):
         
         # Point-wise log likelihood
         if loglike:
-            loglike_data = xr.Dataset.from_dataframe(self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs))
-            coords = [coords for coords in list(loglike_data.variables) if coords != 'log_lik']
-            loglike_data = loglike_data.set_coords(coords)
+            loglike_data = self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs)
             InfData_tmp['log_likelihood'] = loglike_data
         
         # ppc    
         if ppc:
-            ppc_data = xr.Dataset.from_dataframe(self.gen_ppc(n_ppc = n_ppc, **kwargs))
-            coords = [coords for coords in list(ppc_data.variables) if coords not in ["rt", "response"]]
-            ppc_data = ppc_data.set_coords(coords)
+            ppc_data = self.gen_ppc(n_ppc = n_ppc, **kwargs)
             InfData_tmp['posterior_predictive'] = ppc_data
             
         # convert to infdata
@@ -912,6 +918,9 @@ class Hierarchical(object):
             print(f"fail to convert to InferenceData: {error}")
             return    
       
+        if not save_name and hasattr(self, "save_name"):
+            save_name = self.save_name
+            print(f"find the existed save name: ${save_name}")
         if save_name:   
             save_name = Path(save_name).with_suffix(".nc")
             if not save_name.parent.exists():
@@ -976,10 +985,10 @@ class Hierarchical(object):
         if n_loglike and n_loglike > self.ntrace:
             ValueError("n_loglike could not greater than self.ntrace")
 
-        from kabuki.analyze import pointwise_like_gen
-        
         if hasattr(self, 'lppd'):
             return self.lppd
+        
+        from kabuki.analyze import pointwise_like_gen
         
         if n_loglike:
             lppd = pointwise_like_gen(self, samples = n_loglike * self.chains, **kwargs)
@@ -987,8 +996,18 @@ class Hierarchical(object):
             lppd.index = lppd.index.set_levels(new_draw_index, level='draw')
         else:
             lppd = pointwise_like_gen(self, samples = n_loglike, **kwargs)
-        self.lppd = self._reset_draw_index(lppd)
-        
+              
+        import xarray as xr
+        try:
+            lppd = self._reset_draw_index(lppd)
+            lppd = xr.Dataset.from_dataframe(lppd)
+            coords = [coords for coords in list(lppd.variables) if coords != 'log_lik']
+            lppd = lppd.set_coords(coords)
+            self.lppd = lppd
+        except Exception as error:
+            print(f"fail to convert log-likelihood(self.lppd) to xarray: {error}")
+            self.lppd = lppd
+
         end_time = time.time()
         elapsed_time = end_time - start_time
         print("The time of calculation of loglikelihood: ", round(elapsed_time,3), "s")
@@ -1005,10 +1024,10 @@ class Hierarchical(object):
         if n_ppc and n_ppc > self.ntrace:
             ValueError("n_ppc could not greater than self.ntrace")
 
-        from kabuki.analyze import post_pred_gen
-        
         if hasattr(self, 'ppc'):
             return self.ppc
+        
+        from kabuki.analyze import post_pred_gen
         
         if n_ppc:
             ppc = post_pred_gen(self, samples = n_ppc * self.chains, **kwargs)
@@ -1016,7 +1035,17 @@ class Hierarchical(object):
             ppc.index = ppc.index.set_levels(new_draw_index, level='draw')
         else:
             ppc = post_pred_gen(self, samples = n_ppc, **kwargs)   
-        self.ppc = self._reset_draw_index(ppc)
+        
+        import xarray as xr
+        try:
+            ppc = self._reset_draw_index(ppc)
+            ppc = xr.Dataset.from_dataframe(ppc)
+            coords = [coords for coords in list(ppc.variables) if coords not in ["rt", "response"]]
+            ppc = ppc.set_coords(coords)
+            self.ppc = ppc
+        except Exception as error:
+            print(f"fail to convert posterior predictive check (self.ppc) to xarray: {error}")
+            self.ppc = ppc
         
         end_time = time.time()
         elapsed_time = end_time - start_time

@@ -34,8 +34,16 @@ def load(fname):
     model.save(fname)
 
     """
-    with open(fname, "rb") as f:
-        model = pickle.load(f)
+    from pathlib import Path
+
+    fname = Path(fname)
+    fname_hddm = fname.with_suffix(".hddm")
+    if fname_hddm.exists():
+        with open(fname_hddm, "rb") as f:
+            model = pickle.load(f)
+    else:
+        with open(fname, "rb") as f:
+            model = pickle.load(f)
 
     return model
 
