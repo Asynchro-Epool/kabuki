@@ -588,13 +588,13 @@ def geweke_problems(model, fname=None, **kwargs):
 
 
 def _post_pred_generate(
-    bottom_node, samples=500, data=None, append_data=False, add_model_parameters=False
+    bottom_node, samples=500, data=None, append_data=False, **kwargs
 ):
     """Generate posterior predictive data from a single observed node."""
     import pymc as pm
     import numpy as np
     
-    
+    add_model_parameters = kwargs.pop("add_model_parameters", None)
     datasets = []
 
     ##############################
@@ -624,7 +624,10 @@ def _post_pred_generate(
             _parents_to_random_posterior_sample(bottom_node, pos = sample)
             
             # Generate data from bottom node
-            sampled_data = bottom_node.random(add_model_parameters=add_model_parameters)
+            if add_model_parameters is None:
+                sampled_data = bottom_node.random()
+            else:
+                sampled_data = bottom_node.random(add_model_parameters=add_model_parameters)
             
             # change the index of ppc data if it is not the same as the observed data
             # here we used the all() because `any` will cause a mess in the first node's index
@@ -648,7 +651,10 @@ def _post_pred_generate(
             _parents_to_random_posterior_sample(bottom_node, pos = pos)
 
             # Generate data from bottom node
-            sampled_data = bottom_node.random(add_model_parameters=add_model_parameters)
+            if add_model_parameters is None:
+                sampled_data = bottom_node.random()
+            else:
+                sampled_data = bottom_node.random(add_model_parameters=add_model_parameters)
             
             # change the index of ppc data if it is not the same as the observed data
             if not all(sampled_data.index == bottom_node.value.index): 
@@ -671,9 +677,9 @@ def post_pred_gen(
         groupby=None, 
         samples=500, 
         append_data=False, 
-        add_model_parameters=False,
         progress_bar=False, 
-        parallel=True
+        parallel=True,
+        **kwargs
     ):
     """Run posterior predictive check on a model.
     :Arguments:
@@ -737,7 +743,7 @@ def post_pred_gen(
                 samples=samples, 
                 data=data, 
                 append_data=append_data,
-                add_model_parameters=add_model_parameters
+                **kwargs
             )
             result = pd.concat(datasets, names=['draw'], keys=list(range(len(datasets))))
             
@@ -745,7 +751,7 @@ def post_pred_gen(
         
         tmp_list = [(name, data) for name, data in iter_data if model.get_data_nodes(data.index) is not None and hasattr(model.get_data_nodes(data.index), 'random')]  
         
-        results = Parallel(n_jobs=-1)(delayed(get_individual_logp)(name, data, model, samples, append_data) for name, data in tmp_list)
+        results = Parallel(n_jobs=-1)(delayed(get_individual_logp)(name, data, model, samples, append_data, **kwargs) for name, data in tmp_list)
         results = dict(results)
     else:
         
@@ -775,7 +781,7 @@ def post_pred_gen(
                 samples=samples, 
                 data=data, 
                 append_data=append_data,
-                add_model_parameters=add_model_parameters
+                **kwargs
             )
             results[new_name] = pd.concat(
                 datasets, 
