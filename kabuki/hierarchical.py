@@ -902,13 +902,19 @@ class Hierarchical(object):
         
         # Point-wise log likelihood
         if loglike:
-            loglike_data = self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs)
-            InfData_tmp['log_likelihood'] = loglike_data
+            try:
+                loglike_data = self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs)
+                InfData_tmp['log_likelihood'] = loglike_data
+            except:
+                pass
         
         # ppc    
         if ppc:
-            ppc_data = self.gen_ppc(n_ppc = n_ppc, **kwargs)
-            InfData_tmp['posterior_predictive'] = ppc_data
+            try:
+                ppc_data = self.gen_ppc(n_ppc = n_ppc, **kwargs)
+                InfData_tmp['posterior_predictive'] = ppc_data
+            except:
+                pass
             
         # convert to infdata
         print("Start converting to InferenceData...")
