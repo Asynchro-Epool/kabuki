@@ -905,16 +905,17 @@ class Hierarchical(object):
             try:
                 loglike_data = self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs)
                 InfData_tmp['log_likelihood'] = loglike_data
-            except:
-                pass
+            except Exception as error:
+                print(f"fail to convert log-likelihood(self.lppd) to xarray: {error}")
+                
         
         # ppc    
         if ppc:
             try:
                 ppc_data = self.gen_ppc(n_ppc = n_ppc, **kwargs)
                 InfData_tmp['posterior_predictive'] = ppc_data
-            except:
-                pass
+            except Exception as error:
+                print(f"fail to convert posterior predictive check (self.ppc) to xarray: {error}")
             
         # convert to infdata
         print("Start converting to InferenceData...")
