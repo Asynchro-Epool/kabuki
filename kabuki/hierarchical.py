@@ -252,6 +252,20 @@ class Knode(object):
         return self.nodes[deps_on_elems]
 
 
+def timer(func_name = None):
+    import time
+    def wrapper(func):
+        def sub_wrapper(*args, **kwargs):
+            nonlocal func_name
+            func_name = "Runing " + func.__name__ if func_name is None else func_name
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            end_time = time.time()
+            print(f"{func_name} took {end_time - start_time:.3f} seconds")
+            return result
+        return sub_wrapper
+    return wrapper
+
 def intersect(t1, t2):
     # Preserves order, unlike set.
     return tuple([i for i in t2 if i in t1])
@@ -907,7 +921,6 @@ class Hierarchical(object):
                 InfData_tmp['log_likelihood'] = loglike_data
             except Exception as error:
                 print(f"fail to convert log-likelihood(self.lppd) to xarray: {error}")
-                
         
         # ppc    
         if ppc:
@@ -982,10 +995,8 @@ class Hierarchical(object):
         
         return trace_tmp
     
+    @timer(func_name="The time of calculation of loglikelihood")
     def get_pointwise_loglike(self, n_loglike = None,**kwargs):
-        
-        import time
-        start_time = time.time()
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
@@ -1015,16 +1026,10 @@ class Hierarchical(object):
             print(f"fail to convert log-likelihood(self.lppd) to xarray: {error}")
             self.lppd = lppd
 
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print("The time of calculation of loglikelihood: ", round(elapsed_time,3), "s")
-        
         return self.lppd
     
+    @timer(func_name="The time of generating PPC")
     def gen_ppc(self, n_ppc = None, **kwargs):
-        
-        import time
-        start_time = time.time()
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
@@ -1053,10 +1058,6 @@ class Hierarchical(object):
         except Exception as error:
             print(f"fail to convert posterior predictive check (self.ppc) to xarray: {error}")
             self.ppc = ppc
-        
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print("The time of generation of ppc: ", round(elapsed_time,3), "s")
         
         return self.ppc
     
