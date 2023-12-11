@@ -918,9 +918,9 @@ class Hierarchical(object):
         if loglike:
             try:
                 if n_loglike is None:
-                    loglike_data = self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs)
-                else:
                     loglike_data = self.get_pointwise_loglike(**kwargs)
+                else:
+                    loglike_data = self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs)
                 InfData_tmp['log_likelihood'] = loglike_data
             except Exception as error:
                 print(f"fail to convert log-likelihood(self.lppd) to xarray: {error}")
@@ -929,9 +929,9 @@ class Hierarchical(object):
         if ppc:
             try:
                 if n_ppc is None:
-                    ppc_data = self.gen_ppc(n_ppc = n_ppc, **kwargs)
-                else:
                     ppc_data = self.gen_ppc(**kwargs)
+                else:
+                    ppc_data = self.gen_ppc(n_ppc = n_ppc, **kwargs)
                 InfData_tmp['posterior_predictive'] = ppc_data
             except Exception as error:
                 print(f"fail to convert posterior predictive check (self.ppc) to xarray: {error}")
