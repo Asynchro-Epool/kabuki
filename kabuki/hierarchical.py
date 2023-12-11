@@ -1037,7 +1037,7 @@ class Hierarchical(object):
     @timer(func_name="The time of generating PPC")
     def gen_ppc(self, n_ppc = 500, **kwargs):
         
-        n_ppc = None if self.ntrace < n_ppc else n_ppc
+        n_ppc = self.ntrace if self.ntrace < n_ppc else n_ppc
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
@@ -1049,12 +1049,9 @@ class Hierarchical(object):
         
         from kabuki.analyze import post_pred_gen
         
-        if n_ppc:
-            ppc = post_pred_gen(self, samples = n_ppc * self.chains, **kwargs)
-            new_draw_index = np.concatenate([np.arange(n_ppc) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
-            ppc.index = ppc.index.set_levels(new_draw_index, level='draw')
-        else:
-            ppc = post_pred_gen(self, **kwargs)   
+        ppc = post_pred_gen(self, samples = n_ppc * self.chains, **kwargs)
+        new_draw_index = np.concatenate([np.arange(n_ppc) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
+        ppc.index = ppc.index.set_levels(new_draw_index, level='draw')
         
         import xarray as xr
         try:
