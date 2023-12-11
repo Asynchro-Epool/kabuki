@@ -917,7 +917,10 @@ class Hierarchical(object):
         # Point-wise log likelihood
         if loglike:
             try:
-                loglike_data = self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs)
+                if n_loglike is None:
+                    loglike_data = self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs)
+                else:
+                    loglike_data = self.get_pointwise_loglike(**kwargs)
                 InfData_tmp['log_likelihood'] = loglike_data
             except Exception as error:
                 print(f"fail to convert log-likelihood(self.lppd) to xarray: {error}")
@@ -925,7 +928,10 @@ class Hierarchical(object):
         # ppc    
         if ppc:
             try:
-                ppc_data = self.gen_ppc(n_ppc = n_ppc, **kwargs)
+                if n_ppc is None:
+                    ppc_data = self.gen_ppc(n_ppc = n_ppc, **kwargs)
+                else:
+                    ppc_data = self.gen_ppc(**kwargs)
                 InfData_tmp['posterior_predictive'] = ppc_data
             except Exception as error:
                 print(f"fail to convert posterior predictive check (self.ppc) to xarray: {error}")
@@ -1029,7 +1035,9 @@ class Hierarchical(object):
         return self.lppd
     
     @timer(func_name="The time of generating PPC")
-    def gen_ppc(self, n_ppc = None, **kwargs):
+    def gen_ppc(self, n_ppc = 500, **kwargs):
+        
+        n_ppc = None if self.ntrace < n_ppc else n_ppc
         
         if not self.sampled:
             ValueError("Model not sampled. Call sample() first.")
@@ -1046,7 +1054,7 @@ class Hierarchical(object):
             new_draw_index = np.concatenate([np.arange(n_ppc) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
             ppc.index = ppc.index.set_levels(new_draw_index, level='draw')
         else:
-            ppc = post_pred_gen(self, samples = n_ppc, **kwargs)   
+            ppc = post_pred_gen(self, **kwargs)   
         
         import xarray as xr
         try:
@@ -1085,6 +1093,7 @@ class Hierarchical(object):
         data.set_index(["chain", "draw", "obs_id"], inplace=True)
         
         return data
+    
     @property
     def logp(self):
         if self.mc is None:
