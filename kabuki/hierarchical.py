@@ -21,6 +21,7 @@ from . import analyze
 
 
 class LnProb(object):
+
   def __init__(self, model):
     self.model = model
 
@@ -40,17 +41,16 @@ class LnProb(object):
 
 
 class Knode(object):
-  def __init__(
-      self,
-      pymc_node,
-      name,
-      depends=(),
-      col_name="",
-      subj=False,
-      hidden=False,
-      pass_dataframe=True,
-      **kwargs
-  ):
+
+  def __init__(self,
+               pymc_node,
+               name,
+               depends=(),
+               col_name="",
+               subj=False,
+               hidden=False,
+               pass_dataframe=True,
+               **kwargs):
     self.pymc_node = pymc_node
     self.name = name
     self.kwargs = kwargs
@@ -124,9 +124,9 @@ class Knode(object):
     row["depends"] = self.depends
     row["hidden"] = self.hidden
 
-    row = pd.DataFrame(
-        data=[row], columns=self.nodes_db.columns, index=[node.__name__]
-    )
+    row = pd.DataFrame(data=[row],
+                       columns=self.nodes_db.columns,
+                       index=[node.__name__])
 
     for dep, elem in zip(self.depends, uniq_elem):
       row[dep] = elem
@@ -148,7 +148,7 @@ class Knode(object):
     # create all the pymc nodes
     for uniq_elem, grouped_data in grouped:
       if not isinstance(uniq_elem, tuple):
-        uniq_elem = (uniq_elem,)
+        uniq_elem = (uniq_elem, )
 
       # create new kwargs to pass to the new pymc node
       kwargs = self.kwargs.copy()
@@ -164,13 +164,10 @@ class Knode(object):
       # get value for observed node
       if self.observed:
         if self.pass_dataframe:
-          kwargs["value"] = grouped_data[
-              self.col_name
-          ]  # .to_records(index=False)
+          kwargs["value"] = grouped_data[self.col_name]  # .to_records(index=False)
         else:
           kwargs["value"] = grouped_data[
-              self.col_name
-          ].values  # .to_records(index=False)
+              self.col_name].values  # .to_records(index=False)
 
       # Deterministic nodes require a parent argument that is a
       # dict mapping parent names to parent nodes. Knode wraps
@@ -252,9 +249,11 @@ class Knode(object):
     return self.nodes[deps_on_elems]
 
 
-def timer(func_name = None):
+def timer(func_name=None):
   import time
+
   def wrapper(func):
+
     def sub_wrapper(*args, **kwargs):
       nonlocal func_name
       func_name = "Runing " + func.__name__ if func_name is None else func_name
@@ -263,8 +262,11 @@ def timer(func_name = None):
       end_time = time.time()
       print(f"{func_name} took {end_time - start_time:.3f} seconds")
       return result
+
     return sub_wrapper
+
   return wrapper
+
 
 def intersect(t1, t2):
   # Preserves order, unlike set.
@@ -272,7 +274,7 @@ def intersect(t1, t2):
 
 
 def test_subset_tuple():
-  assert intersect(("a", "b", "c"), ("a",)) == ("a",)
+  assert intersect(("a", "b", "c"), ("a", )) == ("a", )
   assert intersect(("a", "b", "c"), ("a", "b")) == ("a", "b")
   assert intersect(("a", "b", "c"), ("a", "c")) == ("a", "c")
   assert intersect(("a", "b", "c"), ("b", "c")) == ("b", "c")
@@ -380,9 +382,7 @@ class Hierarchical(object):
     else:
       if is_group_model:
         if "subj_idx" not in data.columns:
-          raise ValueError(
-              "Group models require 'subj_idx' column in input data."
-          )
+          raise ValueError("Group models require 'subj_idx' column in input data.")
 
       self.is_group_model = is_group_model
 
@@ -424,9 +424,7 @@ class Hierarchical(object):
 
       dbname = d["mc"].db.__name__
       if dbname == "ram":
-        raise ValueError(
-            "db is 'ram'. Saving a model requires a database on disk."
-        )
+        raise ValueError("db is 'ram'. Saving a model requires a database on disk.")
       elif dbname == "pickle":
         d["dbname"] = d["mc"].db.filename
       elif dbname == "txt":
@@ -564,8 +562,7 @@ class Hierarchical(object):
     if self.is_group_model:
       raise NotImplementedError(
           """Sorry, This method is not yet implemented for group models.
-            you might consider using the approximate_map method"""
-      )
+            you might consider using the approximate_map method""")
 
     maps = []
 
@@ -593,8 +590,7 @@ class Hierarchical(object):
       if abs_err > warn_crit:
         print(
             "Warning! Two best fitting MAP estimates are %f apart. Consider using more runs to avoid local minima."
-            % abs_err
-        )
+            % abs_err)
 
     # Set values of nodes
     for max_node in max_map.stochastics:
@@ -654,8 +650,7 @@ class Hierarchical(object):
         try:
           self.mc.logp
           p0[i, :] = [
-              node_descr["node"].value
-              for name, node_descr in stochs.iterrows()
+              node_descr["node"].value for name, node_descr in stochs.iterrows()
           ]
           i += 1
         except pm.ZeroProbability:
@@ -670,18 +665,16 @@ class Hierarchical(object):
     else:
       scale = 0.1
 
-    p0 = (
-        np.random.randn(ndim * nwalkers).reshape((nwalkers, ndim))
-        * scale
-        * dispersion
-        + start
-    )
+    p0 = (np.random.randn(ndim * nwalkers).reshape(
+        (nwalkers, ndim)) * scale * dispersion + start)
     # p0 = init_from_priors()
 
     # instantiate sampler passing in the pymc likelihood function
-    sampler = emcee.EnsembleSampler(
-        nwalkers, ndim, lnprob, a=stretch_width, pool=pool
-    )
+    sampler = emcee.EnsembleSampler(nwalkers,
+                                    ndim,
+                                    lnprob,
+                                    a=stretch_width,
+                                    pool=pool)
 
     bar = pbar.progress_bar(burn + samples)
     i = 0
@@ -706,13 +699,8 @@ class Hierarchical(object):
     except KeyboardInterrupt:
       pass
     finally:
-      print(
-          (
-              "\nMean acceptance fraction during sampling: {}".format(
-                  np.mean(sampler.acceptance_fraction)
-              )
-          )
-      )
+      print(("\nMean acceptance fraction during sampling: {}".format(
+          np.mean(sampler.acceptance_fraction))))
       # restore state
       for val, (name, node_descr) in zip(start, stochs.iterrows()):
         node_descr["node"].set_value(val)
@@ -789,7 +777,11 @@ class Hierarchical(object):
         return hddm
 
       dbname = Path(dbname)
-      hddms = {"{}_chain{}_{}{}".format(dbname.with_suffix(""), i,int(time.time()),dbname.suffix):deepcopy(self) for i in range(chains)}
+      hddms = {
+          "{}_chain{}_{}{}".format(dbname.with_suffix(""), i, int(time.time()), dbname.suffix):
+          deepcopy(self)
+          for i in range(chains)
+      }
       dbnames = list(hddms.keys())
 
       # whether use muliple cores to sample parallelly
@@ -797,9 +789,14 @@ class Hierarchical(object):
         from joblib import Parallel, delayed
         import psutil
         n_jobs = min(psutil.cpu_count(), chains)
-        ms = Parallel(n_jobs=n_jobs)(delayed(sample_single_chain)(hddm, dbn, db, *args, **kwargs) for dbn,hddm in hddms.items())
+        ms = Parallel(n_jobs=n_jobs)(
+            delayed(sample_single_chain)(hddm, dbn, db, *args, **kwargs)
+            for dbn, hddm in hddms.items())
       else:
-        ms = [sample_single_chain(hddm, dbn, db, *args, **kwargs) for dbn,hddm in hddms.items()]
+        ms = [
+            sample_single_chain(hddm, dbn, db, *args, **kwargs)
+            for dbn, hddm in hddms.items()
+        ]
 
       # save temple trace.db files
       ntrace = ms[0].mc.db._traces['deviance']._trace[0].size
@@ -810,21 +807,20 @@ class Hierarchical(object):
       self.ntrace = ntrace
 
     else:
-      dbnames = [dbname] if dbname == "tmp.db" else [] # for deleting the tmp file `dbname`
+      dbnames = [dbname] if dbname == "tmp.db" else [
+      ]  # for deleting the tmp file `dbname`
       # init mc if needed
       if self.mc == None:
         self.mcmc(db=db, dbname=dbname)
 
       # suppress annoying warnings
-      if ("hdf5" in dir(pm.database)) and isinstance(
-          self.mc.db, pm.database.hdf5.Database
-      ):
+      if ("hdf5" in dir(pm.database)) and isinstance(self.mc.db,
+                                                     pm.database.hdf5.Database):
         warnings.simplefilter("ignore", pm.database.hdf5.tables.NaturalNameWarning)
 
       # sample
       self.mc.sample(*args, **kwargs)
       self.ntrace = self.mc.db._traces['deviance']._trace[0].size
-
 
     self.chains = chains
     self.gen_draw_index()
@@ -832,11 +828,17 @@ class Hierarchical(object):
     self.gen_stats()
     end_time = time.time()
     elapsed_time = end_time - start_time
-    print("hddm sampling elpased time: ", round(elapsed_time,3), "s")
+    print("hddm sampling elpased time: ", round(elapsed_time, 3), "s")
 
     if return_infdata:
       try:
-        self.to_infdata(loglike = loglike, n_loglike = n_loglike, ppc = ppc, n_ppc = n_ppc, save_name = save_name, parallel = parallel, **kwargs)
+        self.to_infdata(loglike=loglike,
+                        n_loglike=n_loglike,
+                        ppc=ppc,
+                        n_ppc=n_ppc,
+                        save_name=save_name,
+                        parallel=parallel,
+                        **kwargs)
       except Exception as error:
         print(f"fail to convert to InferenceData: {error}")
         self.to_infdata()
@@ -870,7 +872,7 @@ class Hierarchical(object):
 
     return self.infdata if hasattr(self, 'infdata') else self.mc
 
-  def to_infdata(self, loglike = False, ppc = False, save_name = False, **kwargs):
+  def to_infdata(self, loglike=False, ppc=False, save_name=False, **kwargs):
     """
         convert HDDM to InferenceData
         
@@ -927,7 +929,7 @@ class Hierarchical(object):
         if n_loglike is None:
           loglike_data = self.get_pointwise_loglike(**kwargs)
         else:
-          loglike_data = self.get_pointwise_loglike(n_loglike = n_loglike, **kwargs)
+          loglike_data = self.get_pointwise_loglike(n_loglike=n_loglike, **kwargs)
         InfData_tmp['log_likelihood'] = loglike_data
       except Exception as error:
         print(f"fail to convert log-likelihood(self.lppd) to xarray: {error}")
@@ -938,10 +940,12 @@ class Hierarchical(object):
         if n_ppc is None:
           ppc_data = self.gen_ppc(**kwargs)
         else:
-          ppc_data = self.gen_ppc(n_ppc = n_ppc, **kwargs)
+          ppc_data = self.gen_ppc(n_ppc=n_ppc, **kwargs)
         InfData_tmp['posterior_predictive'] = ppc_data
       except Exception as error:
-        print(f"fail to convert posterior predictive check (self.ppc) to xarray: {error}")
+        print(
+            f"fail to convert posterior predictive check (self.ppc) to xarray: {error}"
+        )
 
     # convert to infdata
     print("Start converting to InferenceData...")
@@ -976,8 +980,11 @@ class Hierarchical(object):
 
   def gen_draw_index(self):
 
-    index = pd.MultiIndex.from_product([np.arange(self.chains), np.arange(self.ntrace)], names=['chain', 'trace'])
-    index = pd.DataFrame({"draw": np.arange(self.chains*self.ntrace)},index = index).reset_index().set_index("draw")
+    index = pd.MultiIndex.from_product(
+        [np.arange(self.chains), np.arange(self.ntrace)], names=['chain', 'trace'])
+    index = pd.DataFrame({
+        "draw": np.arange(self.chains * self.ntrace)
+    }, index=index).reset_index().set_index("draw")
     self.draw_index = index
 
     return self.draw_index
@@ -990,26 +997,29 @@ class Hierarchical(object):
     if hasattr(self, 'xdata_posterior'):
       return self.xdata_posterior
 
-
     trace_tmp = self.get_traces()
 
     def inv_logit(x):
       import numpy as np
       return np.exp(x) / (1 + np.exp(x))
+
     trans_cols = trace_tmp.filter(regex='_trans').columns
     trace_tmp[trans_cols] = inv_logit(trace_tmp[trans_cols])
     trace_tmp.columns = trace_tmp.columns.str.replace("_trans", "")
 
     trace_tmp.index.name = 'draw'
-    trace_tmp = trace_tmp.merge(self.gen_draw_index(), how='left', left_index=True, right_index=True)
-    trace_tmp.reset_index(drop=True,inplace=True)
-    trace_tmp.rename(columns={"trace":"draw"}, inplace=True)
+    trace_tmp = trace_tmp.merge(self.gen_draw_index(),
+                                how='left',
+                                left_index=True,
+                                right_index=True)
+    trace_tmp.reset_index(drop=True, inplace=True)
+    trace_tmp.rename(columns={"trace": "draw"}, inplace=True)
     trace_tmp.set_index(["chain", "draw"], inplace=True)
 
     return trace_tmp
 
   @timer(func_name="The time of calculation of loglikelihood")
-  def get_pointwise_loglike(self, n_loglike = None,**kwargs):
+  def get_pointwise_loglike(self, n_loglike=None, **kwargs):
 
     if not self.sampled:
       ValueError("Model not sampled. Call sample() first.")
@@ -1022,11 +1032,14 @@ class Hierarchical(object):
     from kabuki.analyze import pointwise_like_gen
 
     if n_loglike:
-      lppd = pointwise_like_gen(self, samples = n_loglike * self.chains, **kwargs)
-      new_draw_index = np.concatenate([np.arange(n_loglike) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
+      lppd = pointwise_like_gen(self, samples=n_loglike * self.chains, **kwargs)
+      new_draw_index = np.concatenate([
+          np.arange(n_loglike) + (c_tmp * self.ntrace)
+          for c_tmp in range(self.chains)
+      ])
       lppd.index = lppd.index.set_levels(new_draw_index, level='draw')
     else:
-      lppd = pointwise_like_gen(self, samples = n_loglike, **kwargs)
+      lppd = pointwise_like_gen(self, samples=n_loglike, **kwargs)
 
     import xarray as xr
     try:
@@ -1042,7 +1055,7 @@ class Hierarchical(object):
     return self.lppd
 
   @timer(func_name="The time of generating PPC")
-  def gen_ppc(self, n_ppc = 500, **kwargs):
+  def gen_ppc(self, n_ppc=500, **kwargs):
 
     n_ppc = self.ntrace if self.ntrace < n_ppc else n_ppc
 
@@ -1056,19 +1069,25 @@ class Hierarchical(object):
 
     from kabuki.analyze import post_pred_gen
 
-    ppc = post_pred_gen(self, samples = n_ppc * self.chains, **kwargs)
-    new_draw_index = np.concatenate([np.arange(n_ppc) + (c_tmp * self.ntrace)  for c_tmp in range(self.chains)])
+    ppc = post_pred_gen(self, samples=n_ppc * self.chains, **kwargs)
+    new_draw_index = np.concatenate(
+        [np.arange(n_ppc) + (c_tmp * self.ntrace) for c_tmp in range(self.chains)])
     ppc.index = ppc.index.set_levels(new_draw_index, level='draw')
 
     import xarray as xr
     try:
       ppc = self._reset_draw_index(ppc)
       ppc = xr.Dataset.from_dataframe(ppc)
-      coords = [coords for coords in list(ppc.variables) if coords not in ["rt", "response"]]
+      coords = [
+          coords for coords in list(ppc.variables)
+          if coords not in ["rt", "response"]
+      ]
       ppc = ppc.set_coords(coords)
       self.ppc = ppc
     except Exception as error:
-      print(f"fail to convert posterior predictive check (self.ppc) to xarray: {error}")
+      print(
+          f"fail to convert posterior predictive check (self.ppc) to xarray: {error}"
+      )
       self.ppc = ppc
 
     return self.ppc
@@ -1076,7 +1095,10 @@ class Hierarchical(object):
   def _reset_draw_index(self, data):
 
     # add chains and trace index
-    data = data.merge(self.gen_draw_index(), how='left', left_index=True, right_index=True)
+    data = data.merge(self.gen_draw_index(),
+                      how='left',
+                      left_index=True,
+                      right_index=True)
 
     obs_df = self.data
     if not 'trial' in obs_df:
@@ -1088,12 +1110,12 @@ class Hierarchical(object):
     data.reset_index(inplace=True)
     data.drop(["draw"], axis=1, inplace=True)
 
-    data['subj_idx'] = data['node'].str.extract(r'(\d+)', expand = False)
+    data['subj_idx'] = data['node'].str.extract(r'(\d+)', expand=False)
     if pd.isna(data['subj_idx']).all():
       data.drop(["subj_idx"], axis=1, inplace=True)
     else:
       data['subj_idx'] = data['subj_idx'].astype(int)
-    data.rename(columns={"trace":"draw", "trial_idx":"obs_id"}, inplace=True)
+    data.rename(columns={"trace": "draw", "trial_idx": "obs_id"}, inplace=True)
     data.set_index(["chain", "draw", "obs_id"], inplace=True)
 
     return data
@@ -1130,8 +1152,7 @@ class Hierarchical(object):
     """Akaike Information Criterion."""
     if self.is_group_model:
       raise NotImplementedError(
-          "AIC can only be computed for non-hierarchical models. See dic."
-      )
+          "AIC can only be computed for non-hierarchical models. See dic.")
     k = len(self.get_stochastics())
     logp = sum([x.logp for x in self.get_observeds()["node"]])
     return 2 * k - 2 * logp
@@ -1141,8 +1162,7 @@ class Hierarchical(object):
     """Bayesian Information Criterion."""
     if self.is_group_model:
       raise NotImplementedError(
-          "BIC can only be computed for non-hierarchical models. See dic."
-      )
+          "BIC can only be computed for non-hierarchical models. See dic.")
     k = len(self.get_stochastics())
     n = len(self.data)
     logp = sum([x.logp for x in self.get_observeds()["node"]])
@@ -1179,9 +1199,8 @@ class Hierarchical(object):
 
     # only print stats of stochastic, non-observed nodes
     if not print_hidden:
-      sliced_db = sliced_db[
-          (sliced_db["observed"] == False) & (sliced_db["hidden"] == False)
-      ]
+      sliced_db = sliced_db[(sliced_db["observed"] == False)
+                            & (sliced_db["hidden"] == False)]
     else:
       sliced_db = sliced_db[(sliced_db["observed"] == False)]
 
@@ -1293,18 +1312,16 @@ class Hierarchical(object):
 
     # loop over nodes and for each node if it
     for name, node in self.iter_non_observeds():
-      if (params is None) or (
-          node["knode_name"] in params
-      ):  # plot params if its name was mentioned
+      if (params is None) or (node["knode_name"]
+                              in params):  # plot params if its name was mentioned
         if not node["hidden"]:  # plot it if it is not hidden
           plot_value = node["node"].plot
-          if (
-              plot_subjs and node["subj"]
-          ):  # plot if it is a subj node and plot_subjs==True
+          if (plot_subjs
+              and node["subj"]):  # plot if it is a subj node and plot_subjs==True
             node["node"].plot = True
-          if (params is not None) and (
-              node["knode_name"] in params
-          ):  # plot if it was sepecficily mentioned
+          if (params
+              is not None) and (node["knode_name"]
+                                in params):  # plot if it was sepecficily mentioned
             node["node"].plot = True
           pm.Matplot.plot(node["node"], last=save, **kwargs)
           node["node"].plot = plot_value
@@ -1347,9 +1364,8 @@ class Hierarchical(object):
     return self.nodes_db[self.nodes_db.stochastic == True]
 
   def get_subj_nodes(self, stochastic=True):
-    select = (self.nodes_db["subj"] == True) & (
-        self.nodes_db["stochastic"] == stochastic
-    )
+    select = (self.nodes_db["subj"] == True) & (self.nodes_db["stochastic"]
+                                                == stochastic)
 
     return self.nodes_db[select]
 
@@ -1359,9 +1375,8 @@ class Hierarchical(object):
       yield node
 
   def get_group_nodes(self, stochastic=True):
-    select = (self.nodes_db["subj"] == False) & (
-        self.nodes_db["stochastic"] == stochastic
-    )
+    select = (self.nodes_db["subj"] == False) & (self.nodes_db["stochastic"]
+                                                 == stochastic)
 
     return self.nodes_db[select]
 
@@ -1374,9 +1389,7 @@ class Hierarchical(object):
     """Returns a DataFrame containing traces of all stochastic
         group nodes in the model.
         """
-    return pd.DataFrame(
-        {i.__name__: i.trace() for i in self.get_group_nodes().node}
-    )
+    return pd.DataFrame({i.__name__: i.trace() for i in self.get_group_nodes().node})
 
   def get_traces(self):
     """Returns a DataFrame containing traces of all stochastic
@@ -1385,9 +1398,7 @@ class Hierarchical(object):
         :Note: It is quite easy to then save this trace to csv by
         calling model.get_traces().to_csv('samples.csv')
         """
-    return pd.DataFrame(
-        {i.__name__: i.trace() for i in self.get_stochastics().node}
-    )
+    return pd.DataFrame({i.__name__: i.trace() for i in self.get_stochastics().node})
 
   def get_data_nodes(self, idx):
     data_nodes = []
@@ -1398,8 +1409,7 @@ class Hierarchical(object):
 
     if len(data_nodes) != 1:
       raise NotImplementedError(
-          "Supply a grouping so that at most 1 observed node codes for each group."
-      )
+          "Supply a grouping so that at most 1 observed node codes for each group.")
 
     return data_nodes[0]
 
@@ -1486,27 +1496,21 @@ class Hierarchical(object):
             "method": minimizer,
             "options": minimizer_kwargs,
         }
-        basinhopping(
-            opt,
-            init_vals,
-            minimizer_kwargs=minimizer_kwargs_passed,
-            **basin_kwargs
-        )
+        basinhopping(opt,
+                     init_vals,
+                     minimizer_kwargs=minimizer_kwargs_passed,
+                     **basin_kwargs)
       except:
         if fall_to_simplex:
-          print(
-              "Warning: Powell optimization failed. Falling back to simplex."
-          )
+          print("Warning: Powell optimization failed. Falling back to simplex.")
           minimizer_kwargs_passed = {
               "method": minimizer,
               "options": minimizer_kwargs,
           }
-          basinhopping(
-              opt,
-              init_vals,
-              minimizer_kwargs=minimizer_kwargs_passed,
-              **basin_kwargs
-          )
+          basinhopping(opt,
+                       init_vals,
+                       minimizer_kwargs=minimizer_kwargs_passed,
+                       **basin_kwargs)
         else:
           raise
     else:
@@ -1514,12 +1518,8 @@ class Hierarchical(object):
         minimize(opt, init_vals, method=minimizer, options=minimizer_kwargs)
       except:
         if fall_to_simplex:
-          print(
-              "Warning: Powell optimization failed. Falling back to simplex."
-          )
-          minimize(
-              opt, init_vals, method="Nelder-Mead", options=minimizer_kwargs
-          )
+          print("Warning: Powell optimization failed. Falling back to simplex.")
+          minimize(opt, init_vals, method="Nelder-Mead", options=minimizer_kwargs)
         else:
           raise
 
@@ -1534,13 +1534,10 @@ class Hierarchical(object):
   ):
     # Optimize subj nodes
     for subj_idx in self.nodes_db.subj_idx.dropna().unique():
-      stoch_nodes = self.nodes_db.loc[
-          (self.nodes_db.subj_idx == subj_idx)
-          & (self.nodes_db.stochastic == True)
-      ].node
-      obs_nodes = self.nodes_db.loc[
-          (self.nodes_db.subj_idx == subj_idx) & (self.nodes_db.observed == True)
-      ].node
+      stoch_nodes = self.nodes_db.loc[(self.nodes_db.subj_idx == subj_idx)
+                                      & (self.nodes_db.stochastic == True)].node
+      obs_nodes = self.nodes_db.loc[(self.nodes_db.subj_idx == subj_idx)
+                                    & (self.nodes_db.observed == True)].node
       self._partial_optimize(
           stoch_nodes,
           obs_nodes,
@@ -1605,21 +1602,15 @@ class Hierarchical(object):
     # Sort generations according to order of nodes_db
     generations = []
     for gen in generations_unsorted:
-      generations.append(
-          [
-              row.node
-              for name, row in self.nodes_db.iterrows()
-              if name in [node.__name__ for node in gen]
-          ]
-      )
+      generations.append([
+          row.node for name, row in self.nodes_db.iterrows()
+          if name in [node.__name__ for node in gen]
+      ])
 
     for cyc in range(cycles):
       for i in range(len(generations) - 1, 0, -1):
-        if (
-            self.is_group_model
-            and individual_subjs
-            and (i == len(generations) - 1)
-        ):
+        if (self.is_group_model and individual_subjs
+            and (i == len(generations) - 1)):
           self._approximate_map_subj(
               fall_to_simplex=fall_to_simplex,
               minimizer=minimizer,
