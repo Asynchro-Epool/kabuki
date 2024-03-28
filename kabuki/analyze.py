@@ -996,3 +996,87 @@ def pointwise_like_gen(model, groupby=None, samples=None, append_data=False, pro
             bar.update(bar_iter)
 
     return pd.concat(results, names=['node'])
+
+
+def plot_ppc_by_cond(infdata,
+                     subj_idx=None,
+                     condition_vars=None,
+                     num_pp_samples=500,
+                     **kwargs):
+    """Extends arviz's plot_ppc function to allow plotting of ppc for different experimental conditions and subjects.
+
+    Args:
+        infdata (InferenceData from Arviz): The output from dockerHDDM sampling. 
+        subj_idx (str or list of str, optional): Defaults to None that mean plot all subjects or plot only condition level when `condition_vars` is not None. If `subj_idx` is "all", it plots all subjects vary with condition level.  
+        condition_vars (str, list of str or dict, optional): Defaults to None. `condition_vars` can be a str of variable name ('conf') or list of variable names (['conf','stim']). It support selecting condition levels of variable name, such as `{'stim':['WW','LL']}`. 
+        num_pp_samples (int, optional): The number of posterior predictives used for plotting. Defaults to 500.
+        **kwargs: Other arguments will be sended to `arviz.plot_ppc()`. 
+
+    Returns:
+        axes: The matplotlib axes. 
+    """
+
+    import arviz as az
+
+    tmp_infdata = infdata.copy()
+
+    if isinstance(subj_idx, list):
+        lookup = tmp_infdata.observed_data.subj_idx
+        tmp_infdata.observed_data = tmp_infdata.observed_data.where(
+            lookup.isin(subj_idx), drop=True)
+        tmp_infdata.posterior_predictive = tmp_infdata.posterior_predictive.where(
+            lookup.isin(subj_idx), drop=True)
+    elif isinstance(subj_idx, str):
+        if subj_idx != "all":
+            raise ValueError("subj_idx must be 'all' or a list of subject indices")
+    else:
+        if subj_idx is not None:
+            raise ValueError("subj_idx must be 'all' or a list of subject indices")
+
+    if condition_vars is not None:
+        if isinstance(condition_vars, str) or isinstance(condition_vars, list):
+
+            condition_vars = [condition_vars] if isinstance(condition_vars, str) else condition_vars
+            tmp_df = tmp_infdata.observed_data[condition_vars].to_dataframe(
+            ).reset_index()
+
+        elif isinstance(condition_vars, dict):
+
+            tmp_df = tmp_infdata.observed_data[
+                condition_vars.keys()].to_dataframe().reset_index()
+
+            for key, value in condition_vars.items():
+                tmp_df = tmp_df[tmp_df[key].isin(value)]
+
+                lookup = tmp_infdata.observed_data[key]
+                tmp_infdata.observed_data = tmp_infdata.observed_data.where(
+                    lookup.isin(value), drop=True)
+                tmp_infdata.posterior_predictive = tmp_infdata.posterior_predictive.where(
+                    lookup.isin(value), drop=True)
+
+            # compatible for list
+            condition_vars = list(condition_vars.keys())
+
+        if subj_idx is None:
+            total_vars = condition_vars
+        else:
+            total_vars = ['subj_idx'] + condition_vars
+    else:
+        total_vars = ['subj_idx']
+        tmp_df = tmp_infdata.observed_data[total_vars].to_dataframe().reset_index()
+
+    format_str = '_'.join(
+        [f"{col[:4]}({{{col}}})" for col in tmp_df[total_vars].columns])
+    tmp_df['obs_id'] = tmp_df.apply(lambda row: format_str.format(**row), axis=1)
+
+    for_plot_infdata = tmp_infdata.assign_coords(obs_id=tmp_df.obs_id.values,
+                                                 groups="observed_vars")
+
+    axes = az.plot_ppc(for_plot_infdata,
+                       var_names='rt',
+                       coords={'obs_id': list(tmp_df['obs_id'].unique())},
+                       flatten=[],
+                       num_pp_samples=num_pp_samples,
+                       **kwargs)
+
+    return axes
