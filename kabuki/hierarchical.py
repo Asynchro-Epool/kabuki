@@ -3,7 +3,6 @@
 # import ipdb
 import cloudpickle
 from copy import copy
-import pickle
 import sys
 
 import numpy as np
@@ -906,7 +905,7 @@ class Hierarchical(object):
     try:
       obs_data = self.data.copy()
       obs_data = obs_data.convert_dtypes()
-      if not 'trial' in obs_data.columns:
+      if 'trial' not in obs_data.columns:
         obs_data['trial'] = obs_data.groupby('subj_idx').cumcount()
         obs_data['trial'] = obs_data['trial'].astype('int')
       obs_data.reset_index(inplace=True)
@@ -937,10 +936,7 @@ class Hierarchical(object):
     # ppc
     if ppc:
       try:
-        if n_ppc is None:
-          ppc_data = self.gen_ppc(**kwargs)
-        else:
-          ppc_data = self.gen_ppc(n_ppc=n_ppc, **kwargs)
+        ppc_data = self.gen_ppc(n_ppc=n_ppc, **kwargs)
         InfData_tmp['posterior_predictive'] = ppc_data
       except Exception as error:
         print(
@@ -1023,13 +1019,15 @@ class Hierarchical(object):
 
     if not self.sampled:
       ValueError("Model not sampled. Call sample() first.")
-    if n_loglike and n_loglike > self.ntrace:
-      ValueError("n_loglike could not greater than self.ntrace")
 
     if hasattr(self, 'lppd') and not kwargs.pop("force_regen_loglike", False):
-      warnings.warn(f"lppd(pointwise log-likelihood) already exits, return exiting lppd. If you want to regenerate lppd, please set force_regen_loglike = True")
+      warnings.warn("lppd(pointwise log-likelihood) already exits, return exiting lppd. If you want to regenerate lppd, please set force_regen_loglike = True")
       return self.lppd
 
+    if n_loglike and n_loglike > self.ntrace:
+      warnings.warn(f"n_loglike could not be greater than the number of traces (self.ntrace). Thus n_loglike is set to self.ntrace (n_loglike={self.ntrace})")
+      n_loglike = self.ntrace
+    
     from kabuki.analyze import pointwise_like_gen
 
     if n_loglike:
@@ -1056,18 +1054,21 @@ class Hierarchical(object):
     return self.lppd
 
   @timer(func_name="The time of generating PPC")
-  def gen_ppc(self, n_ppc=500, **kwargs):
-
-    n_ppc = self.ntrace if self.ntrace < n_ppc else n_ppc
-
+  def gen_ppc(self, n_ppc=None, **kwargs):
+    
     if not self.sampled:
       ValueError("Model not sampled. Call sample() first.")
-    if n_ppc and n_ppc > self.ntrace:
-      warnings.warn(f"n_ppc could not be greater than the number of traces (self.ntrace). Thus n_ppc is set to self.ntrace ({n_ppc})")
 
     if hasattr(self, 'ppc') and not kwargs.pop("force_regen_PPC", False):
-      warnings.warn(f"ppc datasets already exits, return exiting ppc. If you want to regenerate PPC, please set force_regen_PPC = True")
+      warnings.warn("ppc datasets already exits, return exiting ppc. If you want to regenerate PPC, please set force_regen_PPC = True")
       return self.ppc
+
+    if n_ppc is None:
+      warnings.warn("n_ppc is not given, set to default 500")
+      n_ppc = 500
+    if n_ppc > self.ntrace:
+      warnings.warn(f"n_ppc could not be greater than the number of traces (self.ntrace). Thus n_ppc is set to self.ntrace (n_ppc={self.ntrace})")
+    n_ppc = self.ntrace if self.ntrace < n_ppc else n_ppc
 
     from kabuki.analyze import post_pred_gen
 
@@ -1103,7 +1104,7 @@ class Hierarchical(object):
                       right_index=True)
 
     obs_df = self.data
-    if not 'trial' in obs_df:
+    if 'trial' not in obs_df:
       obs_df['trial'] = obs_df.groupby('subj_idx').cumcount()
     obs_df.index.name = 'trial_idx'
     # add trial index
