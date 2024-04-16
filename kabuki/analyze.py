@@ -732,7 +732,7 @@ def post_pred_gen(
     if parallel:
         from joblib import Parallel, delayed
         # parallel process through all nodes
-        def get_individual_logp(name, data, model, samples, append_data):
+        def gen_individual_ppc(name, data, model, samples, append_data, **kwargs):
             
             node = model.get_data_nodes(data.index)
 
@@ -751,7 +751,7 @@ def post_pred_gen(
         
         tmp_list = [(name, data) for name, data in iter_data if model.get_data_nodes(data.index) is not None and hasattr(model.get_data_nodes(data.index), 'random')]  
         
-        results = Parallel(n_jobs=-1)(delayed(get_individual_logp)(name, data, model, samples, append_data, **kwargs) for name, data in tmp_list)
+        results = Parallel(n_jobs=-1)(delayed(gen_individual_ppc)(name, data, model, samples, append_data, **kwargs) for name, data in tmp_list)
         results = dict(results)
     else:
         
