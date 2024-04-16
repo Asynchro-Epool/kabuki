@@ -1026,7 +1026,8 @@ class Hierarchical(object):
     if n_loglike and n_loglike > self.ntrace:
       ValueError("n_loglike could not greater than self.ntrace")
 
-    if hasattr(self, 'lppd'):
+    if hasattr(self, 'lppd') and not kwargs.pop("force_regen_loglike", False):
+      warnings.warn(f"lppd(pointwise log-likelihood) already exits, return exiting lppd. If you want to regenerate lppd, please set force_regen_loglike = True")
       return self.lppd
 
     from kabuki.analyze import pointwise_like_gen
@@ -1062,9 +1063,10 @@ class Hierarchical(object):
     if not self.sampled:
       ValueError("Model not sampled. Call sample() first.")
     if n_ppc and n_ppc > self.ntrace:
-      ValueError("n_ppc could not greater than self.ntrace")
+      warnings.warn(f"n_ppc could not be greater than the number of traces (self.ntrace). Thus n_ppc is set to self.ntrace ({n_ppc})")
 
-    if hasattr(self, 'ppc'):
+    if hasattr(self, 'ppc') and not kwargs.pop("force_regen_PPC", False):
+      warnings.warn(f"ppc datasets already exits, return exiting ppc. If you want to regenerate PPC, please set force_regen_PPC = True")
       return self.ppc
 
     from kabuki.analyze import post_pred_gen
