@@ -885,7 +885,11 @@ class Hierarchical(object):
             ppc : bool <default=False>
                 Whether to generate posterior predictive checks.
             n_ppc : number <default=None>
-                The number of the draw to use to generate the posterior prediction. None means use all draws for generation.     
+                The number of the draw to use to generate the posterior prediction. None means use all draws for generation.  
+            parallel : bool
+                run ppc and loglikelihood for parallel at individual node level. Dafault is true.
+            n_jobs: 
+                number of jobs to run in parallel. Default is using all cores.
         
         return: ArViz InferenceData
         """

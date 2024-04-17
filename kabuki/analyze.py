@@ -1,4 +1,5 @@
-import sys, os
+import sys
+import os
 import warnings
 from types import FunctionType
 
@@ -8,7 +9,6 @@ import matplotlib.pyplot as plt
 
 import pandas as pd
 import pymc as pm
-import pymc.progressbar as pbar
 from . import utils
 
 from .utils import interpolate_trace
@@ -637,7 +637,7 @@ def _post_pred_generate(
             sampled_data.index.names = ['trial_idx']
 
             # add the "response" column for regression models
-            if not "response" in sampled_data.columns:
+            if "response" not in sampled_data.columns:
                 sampled_data["response"] = np.where(sampled_data['rt'] > 0, 1.,
                                                     np.where(sampled_data['rt'] <=0, 0., None)) 
                         
@@ -662,7 +662,7 @@ def _post_pred_generate(
             sampled_data.index.names = ['trial_idx']
             
             # add the "response" column for regression models
-            if not "response" in sampled_data.columns:
+            if "response" not in sampled_data.columns:
                 sampled_data["response"] = np.where(sampled_data['rt'] > 0, 1.,
                                                     np.where(sampled_data['rt'] <=0, 0., None)) 
 
@@ -706,10 +706,10 @@ def post_pred_gen(
     :See also:
         post_pred_stats
     """
-    import pymc.progressbar as pbar
     import pandas as pd
     from copy import deepcopy
     
+    n_jobs = kwargs.pop("n_jobs", -1) # -1 is all cores
     model = deepcopy(model)
     
     progress_bar = not parallel
@@ -751,7 +751,7 @@ def post_pred_gen(
         
         tmp_list = [(name, data) for name, data in iter_data if model.get_data_nodes(data.index) is not None and hasattr(model.get_data_nodes(data.index), 'random')]  
         
-        results = Parallel(n_jobs=-1)(delayed(gen_individual_ppc)(name, data, model, samples, append_data, **kwargs) for name, data in tmp_list)
+        results = Parallel(n_jobs=n_jobs)(delayed(gen_individual_ppc)(name, data, model, samples, append_data, **kwargs) for name, data in tmp_list)
         results = dict(results)
     else:
         
@@ -829,11 +829,11 @@ def _pointwise_like_generate(bottom_node, samples=None, data=None, append_data=F
         param_dict = deepcopy(bottom_node.parents.value)
         
         # check if the node is deficit 
-        if not "sv" in param_dict:
+        if "sv" not in param_dict:
             param_dict["sv"] = 0
-        if not "sz" in param_dict:
+        if "sz" not in param_dict:
             param_dict["sz"] = 0
-        if not "st" in param_dict:
+        if "st" not in param_dict:
             param_dict["st"] = 0
         # param_dict = {key: np.array(value, dtype="double") for key, value in param_dict.items()}
         
@@ -934,10 +934,10 @@ def pointwise_like_gen(model, groupby=None, samples=None, append_data=False, pro
     :See also:
         post_pred_stats
     """
-    import pymc.progressbar as pbar
     import pandas as pd
     from copy import deepcopy
     
+    n_jobs = kwargs.pop("n_jobs", -1) # -1 is all cores
     model = deepcopy(model)
     
     progress_bar = not parallel
@@ -971,7 +971,7 @@ def pointwise_like_gen(model, groupby=None, samples=None, append_data=False, pro
         
         tmp_list = [(name, data) for name, data in iter_data if model.get_data_nodes(data.index) is not None and hasattr(model.get_data_nodes(data.index), 'random')]  
         
-        results = Parallel(n_jobs=-1)(delayed(get_individual_logp)(name, data, model, samples, append_data) for name, data in tmp_list)
+        results = Parallel(n_jobs=n_jobs)(delayed(get_individual_logp)(name, data, model, samples, append_data) for name, data in tmp_list)
         results = dict(results)
     else:
         
