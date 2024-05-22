@@ -721,6 +721,10 @@ class Hierarchical(object):
                 The path and file name to save the model. e.g. "model/hddm"
             return_infdata : bool <default=False>
                 Whether to convert the model to InferenceData. Accept loglike and ppc arguments.
+            parallel : bool <default=True>
+                Whether to run sampling in parallel.
+            find_starting_values : bool <default=True>
+                Whether to find starting values for the MCMC algorithm.
 
         :Note:
             Forwards arguments to pymc.MCMC.sample().
@@ -748,6 +752,7 @@ class Hierarchical(object):
         True if ppc or loglike else False)
     save_name = kwargs.pop("save_name", False)
     parallel = kwargs.pop("parallel", True)
+    find_starting_values = kwargs.pop("find_starting_values", True)
     if return_infdata:
       db = "pickle"
     # according to save_name, make dir and configure file names
@@ -771,6 +776,8 @@ class Hierarchical(object):
 
         # hddm = deepcopy(self)
         hddm.mcmc(dbname=dbname, db=db)
+        if find_starting_values:
+          hddm.find_starting_values()
         hddm.sample(*args, **kwargs)
 
         return hddm
@@ -809,7 +816,7 @@ class Hierarchical(object):
       dbnames = [dbname] if dbname == "tmp.db" else [
       ]  # for deleting the tmp file `dbname`
       # init mc if needed
-      if self.mc == None:
+      if self.mc is None:
         self.mcmc(db=db, dbname=dbname)
 
       # suppress annoying warnings
