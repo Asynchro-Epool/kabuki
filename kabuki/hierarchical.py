@@ -902,7 +902,7 @@ class Hierarchical(object):
         """
 
     if not self.sampled:
-      ValueError("Model not sampled. Call sample() first.")
+      raise ValueError("Model not sampled. Call sample() first.")
 
     import xarray as xr
     import arviz as az
@@ -931,8 +931,11 @@ class Hierarchical(object):
       print(f"fail to convert observed data: {error}")
 
     # posteriors
-    InfData_tmp['posterior'] = xr.Dataset.from_dataframe(self.get_posterior_trace())
-
+    try:
+      InfData_tmp['posterior'] = xr.Dataset.from_dataframe(self.get_posterior_trace())
+    except Exception as error:
+      print(f"fail to convert posterior trace: {error}")
+    
     # Point-wise log likelihood
     if loglike:
       try:
