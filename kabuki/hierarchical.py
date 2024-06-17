@@ -878,13 +878,18 @@ class Hierarchical(object):
 
     return self.infdata if hasattr(self, 'infdata') else self.mc
 
-  def to_infdata(self, loglike=False, ppc=False, save_name=False, **kwargs):
+  def to_infdata(self, sample_prior = False,loglike=False, ppc=False, save_name=False, **kwargs):
     """
         convert HDDM to InferenceData
         
         :Arguments:
             save_name : str <default=False>
                 The path and file name to save the model. e.g. "model/hddm_InfData.nc"
+            sample_prior: bool <default=False>
+                Whether to sample prior distribution.
+            n_prior: number or tuple <default=None>
+                The number of the draw to use to sample prior distribution. None means use all draws for sampling. 
+                If n_prior is tuple, the first number represent chains number and the second number present prior draws in each chain. 
             loglike : bool <default=False>
                 Whether to calculate point-wise log likelihood. 
             n_loglike : number <default=None>
@@ -908,6 +913,7 @@ class Hierarchical(object):
     import arviz as az
     from pathlib import Path
 
+    n_prior = kwargs.pop("n_prior", None)
     n_ppc = kwargs.pop("n_ppc", None)
     n_loglike = kwargs.pop("n_loglike", None)
 
@@ -929,6 +935,16 @@ class Hierarchical(object):
       InfData_tmp['observed_data'] = xdata_observed
     except Exception as error:
       print(f"fail to convert observed data: {error}")
+
+    # prior
+    try:
+      nodes_db = self.nodes_db
+      prior_infdata = az.from_dict(
+          prior={id:np.array([knode['node'].random() for _ in range(np.prod(n_prior))]).reshape(n_prior) for id,knode in nodes_db[nodes_db["stochastic"]].iterrows()}
+      )
+      InfData_tmp.update(**prior_infdata)
+    except Exception as error:
+      print(f"fail to sample prior: {error}")
 
     # posteriors
     try:
