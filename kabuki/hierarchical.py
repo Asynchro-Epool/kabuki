@@ -742,6 +742,8 @@ class Hierarchical(object):
 
     # Fetch out custom args
     chains = kwargs.pop("chains", 1)
+    sample_prior = kwargs.pop("sample_prior", False)
+    n_prior = kwargs.pop("n_prior", None)
     loglike = kwargs.pop("loglike", False)
     n_loglike = kwargs.pop("n_loglike", None)
     ppc = kwargs.pop("ppc", False)
@@ -838,7 +840,10 @@ class Hierarchical(object):
 
     if return_infdata:
       try:
-        self.to_infdata(loglike=loglike,
+        self.to_infdata(
+                        sample_prior=sample_prior,
+                        n_prior=n_prior,
+                        loglike=loglike,
                         n_loglike=n_loglike,
                         ppc=ppc,
                         n_ppc=n_ppc,
