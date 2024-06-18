@@ -913,7 +913,7 @@ class Hierarchical(object):
     import arviz as az
     from pathlib import Path
 
-    n_prior = kwargs.pop("n_prior", None)
+    n_prior = kwargs.pop("n_prior", (self.chains, self.ntrace))
     n_ppc = kwargs.pop("n_ppc", None)
     n_loglike = kwargs.pop("n_loglike", None)
 
@@ -937,14 +937,15 @@ class Hierarchical(object):
       print(f"fail to convert observed data: {error}")
 
     # prior
-    try:
-      nodes_db = self.nodes_db
-      prior_infdata = az.from_dict(
-          prior={id:np.array([knode['node'].random() for _ in range(np.prod(n_prior))]).reshape(n_prior) for id,knode in nodes_db[nodes_db["stochastic"]].iterrows()}
-      )
-      InfData_tmp.update(**prior_infdata)
-    except Exception as error:
-      print(f"fail to sample prior: {error}")
+    if sample_prior:
+      try:
+        nodes_db = self.nodes_db
+        prior_infdata = az.from_dict(
+            prior={id:np.array([knode['node'].random() for _ in range(np.prod(n_prior))]).reshape(n_prior) for id,knode in nodes_db[nodes_db["stochastic"]].iterrows()}
+        )
+        InfData_tmp.update(**prior_infdata)
+      except Exception as error:
+        print(f"fail to sample prior: {error}")
 
     # posteriors
     try:
