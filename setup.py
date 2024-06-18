@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name="kabuki",
-    version="0.6.5RC3",
+    version="0.6.5RC4",
     author="Thomas V. Wiecki, Imri Sofer, revised by Wanke Pan",
     author_email="thomas.wiecki@gmail.com",
     url="https://gitee.com/epool/kabuki",
