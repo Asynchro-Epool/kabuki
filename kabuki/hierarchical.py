@@ -280,6 +280,10 @@ def test_subset_tuple():
   assert intersect(("c", "b", "a"), ("b", "c")) == ("b", "c")
 
 
+def inv_logit(x):
+      import numpy as np
+      return np.exp(x) / (1 + np.exp(x))
+
 class Hierarchical(object):
   """Creation of hierarchical Bayesian models in which each subject
     has a set of parameters that are constrained by a group distribution.
@@ -918,7 +922,7 @@ class Hierarchical(object):
     import arviz as az
     from pathlib import Path
 
-    n_prior = kwargs.pop("n_prior", (self.chains, self.ntrace))
+    n_prior = kwargs.pop("n_prior", None)
     n_ppc = kwargs.pop("n_ppc", None)
     n_loglike = kwargs.pop("n_loglike", None)
 
@@ -944,10 +948,7 @@ class Hierarchical(object):
     # prior
     if sample_prior:
       try:
-        nodes_db = self.nodes_db
-        prior_infdata = az.from_dict(
-            prior={id:np.array([knode['node'].random() for _ in range(np.prod(n_prior))]).reshape(n_prior) for id,knode in nodes_db[nodes_db["stochastic"]].iterrows()}
-        )
+        prior_infdata = az.from_dict(prior=self.get_prior_sample(n_prior))
         InfData_tmp.update(**prior_infdata)
       except Exception as error:
         print(f"fail to sample prior: {error}")
@@ -961,10 +962,7 @@ class Hierarchical(object):
     # Point-wise log likelihood
     if loglike:
       try:
-        if n_loglike is None:
-          loglike_data = self.get_pointwise_loglike(**kwargs)
-        else:
-          loglike_data = self.get_pointwise_loglike(n_loglike=n_loglike, **kwargs)
+        loglike_data = self.get_pointwise_loglike(n_loglike=n_loglike, **kwargs)
         InfData_tmp['log_likelihood'] = loglike_data
       except Exception as error:
         print(f"fail to convert log-likelihood(self.lppd) to xarray: {error}")
@@ -1021,19 +1019,35 @@ class Hierarchical(object):
 
     return self.draw_index
 
+  def get_prior_sample(self, n_prior=None, **kwargs):
+      
+      if n_prior is None:
+        warnings.warn("n_prior is not given, set to default 2000")
+        # n_prior = (self.chains, self.ntrace)
+        n_prior = 2000
+
+      nodes_db = self.nodes_db
+      prior_samples = {}
+      for id,knode in nodes_db[nodes_db["stochastic"]].iterrows():
+        
+          prior_prarm_i = np.array([knode['node'].random() for _ in range(np.prod(n_prior))])
+          if "_trans" in id:
+            id = id.replace("_trans", "")
+            prior_prarm_i = inv_logit(prior_prarm_i)
+          
+          prior_samples[id] = prior_prarm_i.reshape(n_prior)
+          
+      return prior_samples
+
   def get_posterior_trace(self):
 
     if not self.sampled:
-      ValueError("Model not sampled. Call sample() first.")
+      raise ValueError("Model not sampled. Call sample() first.")
 
     if hasattr(self, 'xdata_posterior'):
       return self.xdata_posterior
 
     trace_tmp = self.get_traces()
-
-    def inv_logit(x):
-      import numpy as np
-      return np.exp(x) / (1 + np.exp(x))
 
     trans_cols = trace_tmp.filter(regex='_trans').columns
     trace_tmp[trans_cols] = inv_logit(trace_tmp[trans_cols])
@@ -1054,7 +1068,7 @@ class Hierarchical(object):
   def get_pointwise_loglike(self, n_loglike=None, **kwargs):
 
     if not self.sampled:
-      ValueError("Model not sampled. Call sample() first.")
+      raise ValueError("Model not sampled. Call sample() first.")
 
     if hasattr(self, 'lppd') and not kwargs.pop("force_regen_loglike", False):
       warnings.warn("lppd(pointwise log-likelihood) already exits, return exiting lppd. If you want to regenerate lppd, please set force_regen_loglike = True")
@@ -1093,7 +1107,7 @@ class Hierarchical(object):
   def gen_ppc(self, n_ppc=None, **kwargs):
     
     if not self.sampled:
-      ValueError("Model not sampled. Call sample() first.")
+      raise ValueError("Model not sampled. Call sample() first.")
 
     if hasattr(self, 'ppc') and not kwargs.pop("force_regen_PPC", False):
       warnings.warn("ppc datasets already exits, return exiting ppc. If you want to regenerate PPC, please set force_regen_PPC = True")
