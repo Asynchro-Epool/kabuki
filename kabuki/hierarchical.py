@@ -780,13 +780,16 @@ class Hierarchical(object):
       # sample
       def sample_single_chain(hddm, dbname, db, *args, **kwargs):
 
-        # hddm = deepcopy(self)
-        hddm.mcmc(dbname=dbname, db=db)
-        if find_starting_values:
-          hddm.find_starting_values()
-        hddm.sample(*args, **kwargs)
+        try:
+            hddm.mcmc(dbname=dbname, db=db)
+            if find_starting_values:
+              hddm.find_starting_values()
+            hddm.sample(*args, **kwargs)
 
-        return hddm
+            return hddm
+        except Exception as e:
+            print(f"Error processing {dbname}: {e}")
+            return None
 
       dbname = Path(dbname)
       hddms = {
@@ -809,8 +812,10 @@ class Hierarchical(object):
             sample_single_chain(hddm, dbn, db, *args, **kwargs)
             for dbn, hddm in hddms.items()
         ]
+      ms = [m for m in ms if m is not None]
+      chains = len(ms)
 
-      # save temple trace.db files
+      # save temp trace.db files
       ntrace = ms[0].mc.db._traces['deviance']._trace[0].size
       model = concat_models(ms)
       model.mc.db.filename = "{}_{}.db".format(dbname.stem, int(time.time()))
