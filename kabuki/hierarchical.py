@@ -963,7 +963,7 @@ class Hierarchical(object):
       try:
         prior_infdata = az.from_dict(prior=self.get_prior_sample(n_prior))
         # InfData_tmp.update(**prior_infdata)
-        InfData_tmp.add_groups({'prior': prior_infdata})
+        InfData_tmp.extend(prior_infdata)
       except Exception as error:
         print(f"fail to sample prior: {error}")
 
