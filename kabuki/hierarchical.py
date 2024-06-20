@@ -926,68 +926,76 @@ class Hierarchical(object):
     n_ppc = kwargs.pop("n_ppc", None)
     n_loglike = kwargs.pop("n_loglike", None)
 
-    InfData_tmp = {}
+    # init InfData
+    print("Start converting to InferenceData...")
+    if hasattr(self, 'infdata'):
+      InfData_tmp = self.infdata
+    else:
+      InfData_tmp = az.InferenceData()
+    
     # Observations
-    try:
-      obs_data = self.data.copy()
-      obs_data = obs_data.convert_dtypes()
-      if 'trial' not in obs_data.columns:
-        obs_data['trial'] = obs_data.groupby('subj_idx').cumcount()
-        obs_data['trial'] = obs_data['trial'].astype('int')
-      obs_data.reset_index(inplace=True)
-      obs_data['rt'] = obs_data['rt'].astype('float32')
-      obs_data['response'] = obs_data['response'].astype('int')
-      obs_data['subj_idx'] = obs_data['subj_idx'].astype('int')
-      obs_data.index.name = 'obs_id'
-      xdata_observed = xr.Dataset.from_dataframe(obs_data)
-      xdata_observed = xdata_observed.set_coords(["subj_idx", "trial"])
-      InfData_tmp['observed_data'] = xdata_observed
-    except Exception as error:
-      print(f"fail to convert observed data: {error}")
+    if "observed_data" not in InfData_tmp:
+      try:
+        obs_data = self.data.copy()
+        obs_data = obs_data.convert_dtypes()
+        if 'trial' not in obs_data.columns:
+          obs_data['trial'] = obs_data.groupby('subj_idx').cumcount()
+          obs_data['trial'] = obs_data['trial'].astype('int')
+        obs_data.reset_index(inplace=True)
+        obs_data['rt'] = obs_data['rt'].astype('float32')
+        obs_data['response'] = obs_data['response'].astype('int')
+        obs_data['subj_idx'] = obs_data['subj_idx'].astype('int')
+        obs_data.index.name = 'obs_id'
+        xdata_observed = xr.Dataset.from_dataframe(obs_data)
+        xdata_observed = xdata_observed.set_coords(["subj_idx", "trial"])
+        # InfData_tmp['observed_data'] = xdata_observed
+        InfData_tmp.add_groups({'observed_data': xdata_observed})
+      except Exception as error:
+        print(f"fail to convert observed data: {error}")
 
     # prior
-    if sample_prior:
+    if "prior" not in InfData_tmp and sample_prior:
       try:
         prior_infdata = az.from_dict(prior=self.get_prior_sample(n_prior))
-        InfData_tmp.update(**prior_infdata)
+        # InfData_tmp.update(**prior_infdata)
+        InfData_tmp.add_groups({'prior': prior_infdata})
       except Exception as error:
         print(f"fail to sample prior: {error}")
 
     # posteriors
-    try:
-      InfData_tmp['posterior'] = xr.Dataset.from_dataframe(self.get_posterior_trace())
-    except Exception as error:
-      print(f"fail to convert posterior trace: {error}")
+    if 'posterior' not in InfData_tmp:
+      try:
+        # InfData_tmp['posterior'] = xr.Dataset.from_dataframe(self.get_posterior_trace())
+        InfData_tmp.add_groups({'posterior': self.get_posterior_trace().to_xarray()})
+      except Exception as error:
+        print(f"fail to convert posterior trace: {error}")
     
     # Point-wise log likelihood
-    if loglike:
+    if "log_likelihood" not in InfData_tmp and loglike:
       try:
         loglike_data = self.get_pointwise_loglike(n_loglike=n_loglike, **kwargs)
-        InfData_tmp['log_likelihood'] = loglike_data
+        # InfData_tmp['log_likelihood'] = loglike_data
+        InfData_tmp.add_groups({'log_likelihood': loglike_data})
       except Exception as error:
         print(f"fail to convert log-likelihood(self.lppd) to xarray: {error}")
 
     # ppc
-    if ppc:
+    if "posterior_predictive" not in InfData_tmp and ppc:
       try:
         ppc_data = self.gen_ppc(n_ppc=n_ppc, **kwargs)
-        InfData_tmp['posterior_predictive'] = ppc_data
+        # InfData_tmp['posterior_predictive'] = ppc_data
+        InfData_tmp.add_groups({'posterior_predictive': ppc_data})
       except Exception as error:
         print(
             f"fail to convert posterior predictive check (self.ppc) to xarray: {error}"
         )
 
-    # convert to infdata
-    print("Start converting to InferenceData...")
-    try:
-      InfData_tmp = az.InferenceData(**InfData_tmp)
-    except Exception as error:
-      print(f"fail to convert to InferenceData: {error}")
-      return
 
     if not save_name and hasattr(self, "save_name"):
       save_name = self.save_name
       print(f"find the existed save name: ${save_name}")
+    elif save_name:
+      self.save_name = save_name
     if save_name:
       save_name = Path(save_name).with_suffix(".nc")
       if not save_name.parent.exists():
@@ -1044,9 +1052,6 @@ class Hierarchical(object):
     if not self.sampled:
       raise ValueError("Model not sampled. Call sample() first.")
 
-    if hasattr(self, 'xdata_posterior'):
-      return self.xdata_posterior
-
     trace_tmp = self.get_traces()
 
     trans_cols = trace_tmp.filter(regex='_trans').columns
@@ -1061,6 +1066,8 @@ class Hierarchical(object):
     trace_tmp.reset_index(drop=True, inplace=True)
     trace_tmp.rename(columns={"trace": "draw"}, inplace=True)
     trace_tmp.set_index(["chain", "draw"], inplace=True)
+
+    self.posterior_trace_df = trace_tmp
 
     return trace_tmp
 
@@ -1109,7 +1116,7 @@ class Hierarchical(object):
     if not self.sampled:
       raise ValueError("Model not sampled. Call sample() first.")
 
-    if hasattr(self, 'ppc') and not kwargs.pop("force_regen_PPC", False):
+    if hasattr(self, 'ppc') and not kwargs.pop("force_regen_ppc", False):
       warnings.warn("ppc datasets already exits, return exiting ppc. If you want to regenerate PPC, please set force_regen_PPC = True")
       return self.ppc
 
