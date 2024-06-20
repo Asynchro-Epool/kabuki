@@ -991,26 +991,32 @@ class Hierarchical(object):
         )
 
 
-    if not save_name and hasattr(self, "save_name"):
-      save_name = self.save_name
-      print(f"find the existed save name: ${save_name}")
-    elif save_name:
-      self.save_name = save_name
+    # if not save_name and hasattr(self, "save_name"):
+    #   save_name = self.save_name
+    #   print(f"find the existed save name: ${save_name}")
+    # elif save_name:
+    #   self.save_name = save_name
     if save_name:
       save_name = Path(save_name).with_suffix(".nc")
       if not save_name.parent.exists():
         save_name.parent.mkdir(parents=True, exist_ok=True)
       try:
-        # deleting existing file
-        if save_name.is_file():
-          try:
-            save_name.unlink()
-          except OSError as error:
-            print(f"{save_name} is existed, but fail to delete : {error}")
-        InfData_tmp.to_netcdf(save_name)
+          InfData_tmp.to_netcdf(save_name)
       except OSError as error:
-        print(f"fail to save {save_name}: {error}")
-        return InfData_tmp
+          print(f"first attempt to save {save_name} failed: {error}")
+          try:
+              # deleting existing file
+              if save_name.is_file():
+                  try:
+                      save_name.unlink()
+                      print(f"Deleted existing file {save_name}")
+                  except OSError as del_error:
+                      print(f"Failed to delete existing file {save_name}: {del_error}")
+              # try agian
+              InfData_tmp.to_netcdf(save_name)
+          except OSError as final_error:
+              print(f"Failed to save {save_name} after tying to delete existing file: {final_error}")
+              return InfData_tmp
 
     self.infdata = InfData_tmp
 
