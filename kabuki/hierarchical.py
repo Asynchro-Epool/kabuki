@@ -719,12 +719,23 @@ class Hierarchical(object):
     """Sample from posterior.
         
         :Arguments:
+            burn : int <default=0>
+                Number of burn-in samples.
             chains : int <default=1>
                 Number of chains to sample from.
             save_name : str <default=False>
                 The path and file name to save the model. e.g. "model/hddm"
             return_infdata : bool <default=False>
                 Whether to convert the model to InferenceData. Accept loglike and ppc arguments.
+            sample_prior: bool <default=False>
+                Samples are taken from the a priori subsample and integrated into infdata. 
+            n_prior: int <default=(samples - burn)*chains>
+
+            loglike: bool <default=False>
+                Log_likelihoods are calculated and and integrated into infdata.
+            ppc: bool <default=False>
+                Posterior predictive data are generated and and integrated into infdata.
+            n_ppc: int <default=500>
             parallel : bool <default=True>
                 Whether to run sampling in parallel.
             find_starting_values : bool <default=True>
@@ -732,6 +743,12 @@ class Hierarchical(object):
 
         :Note:
             Forwards arguments to pymc.MCMC.sample().
+
+        Example:
+        -------
+        >>> data = hddm.load_csv(hddm.__path__[0] + "/examples/cavanagh_theta_nn.csv")
+        >>> model = hddm.HDDM(data, include="all")
+        >>>model.sample(10000, burn=5000, chains = 4, return_infdata = True, save_name = "example", sample_prior = True, loglike = True, ppc = True)
         """
 
     from pathlib import Path
