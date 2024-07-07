@@ -708,6 +708,7 @@ def post_pred_gen(
     """
     import pandas as pd
     from copy import deepcopy
+    import pymc.progressbar as pbar
     
     n_jobs = kwargs.pop("n_jobs", -1) # -1 is all cores
     model = deepcopy(model)
@@ -936,6 +937,7 @@ def pointwise_like_gen(model, groupby=None, samples=None, append_data=False, pro
     """
     import pandas as pd
     from copy import deepcopy
+    import pymc.progressbar as pbar
     
     n_jobs = kwargs.pop("n_jobs", -1) # -1 is all cores
     model = deepcopy(model)
