@@ -881,31 +881,36 @@ class Hierarchical(object):
         self.to_infdata()
 
     if save_name:
+      try:
+        db_tmp = self.mc.db
+        pre_filename = Path(db_tmp.filename).with_suffix(".db")
+        if pre_filename.is_file():
+          try:
+            pre_filename.unlink()
+          except OSError as error:
+            print(f"fail to delete {pre_filename}: {error}")
+        db_tmp.filename = str(dbname)
+        db_tmp._finalize()
 
-      db_tmp = self.mc.db
-      pre_filename = Path(db_tmp.filename).with_suffix(".db")
-      if pre_filename.is_file():
-        try:
-          pre_filename.unlink()
-        except OSError as error:
-          print(f"fail to delete {pre_filename}: {error}")
-      db_tmp.filename = str(dbname)
-      db_tmp._finalize()
+        # self.load_db(str(db_path), db=db)
 
-      # self.load_db(str(db_path), db=db)
-
-      self.save(hddm_path)
+        self.save(hddm_path)
+      except Exception as error:
+        print(f"fail to save model: {error}")
 
     # delete _tmp.db cache
     if db == "pickle":
-      for filename in dbnames:
-        path = Path(filename)
-        if path.is_file():
-          try:
-            path.unlink()
-            # print(f"delete {filename}")
-          except OSError as error:
-            print(f"fail to delete {filename}: {error}")
+      try:
+        for filename in dbnames:
+          path = Path(filename)
+          if path.is_file():
+            try:
+              path.unlink()
+              # print(f"delete {filename}")
+            except OSError as error:
+              print(f"fail to delete {filename}: {error}")
+      except Exception as error:
+        print(f"fail to delete {dbnames}: {error}")
 
     return self.infdata if hasattr(self, 'infdata') else self.mc
 
